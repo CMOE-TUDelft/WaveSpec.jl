@@ -1,11 +1,14 @@
 module WaveSpec
 
-include("Constants.jl")
-include("Jonswap.jl")
-include("Currents.jl")
-include("WaveTimeSeries.jl")
+include("PhysicalConstants.jl")
+include("Utils/Truncation.jl")
+include("AngularSpreading/AngularSpreading.jl")
+include("SpectralSpreading.jl")
+include("WaveProfiles.jl")
 
-export Constants, Jonswap, WaveTimeSeries
-export Currents
+export Truncation
+export AngularSpreading
+export SpectralSpreading
+export WaveProfiles
 
 end
