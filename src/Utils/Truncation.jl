@@ -78,6 +78,16 @@ function Distributions.rand(rng::AbstractRNG, tm::TruncatedModel)
     end
 end
 
+# 2. Vectorized method for multiple samples (e.g., rand(rng, tm, 10))
+function Distributions.rand(rng::AbstractRNG, tm::TruncatedModel, n::Int)
+    # Pre-allocate the vector for efficiency
+    samples = Vector{Float64}(undef, n)
+    for i in 1:n
+        samples[i] = rand(rng, tm) # This calls your method above
+    end
+    return samples
+end
+
 # convenience rand when rng::AbstractRNG random generator type is not passed as an argument
 Distributions.rand(tm::TruncatedModel) = rand(Random.GLOBAL_RNG, tm)
 

@@ -1,14 +1,28 @@
 module WaveSpec
 
-include("PhysicalConstants.jl")
+# 1. Include the foundational utilities first
 include("Utils/Truncation.jl")
-include("AngularSpreading/AngularSpreading.jl")
-include("SpectralSpreading.jl")
-include("WaveProfiles.jl")
+@reexport using .Truncation
 
-export Truncation
-export AngularSpreading
-export SpectralSpreading
-export WaveProfiles
+# 2. Include the Spreading modules (which depend on Truncation)
+include("SpectralSpreading.jl")
+@reexport using .SpectralSpreading
+
+include("AngularSpreading/AngularSpreading.jl")
+@reexport using .AngularSpreading
+
+# 3. Include the Physics/Synthesis module (which depends on the above)
+include("AiryWaves.jl")
+@reexport using .AiryWaves
+
+
+"""
+    WaveSpec
+A Julia package for generating stochastic sea states using Airy Wave theory,
+customizable spectral shapes (JONSWAP, Pierson-Moskowitz), and angular spreading models.
+"""
+function __init__()
+    @info "WaveSpec initialized: Ready for spectral sea state synthesis."
+end
 
 end

@@ -8,7 +8,10 @@ include("CosinePower.jl")
 include("VonMises.jl")
 include("DonelanBanner.jl")
 
-export SpreadingModel, get_angles, get_weights, get_angles_weights
+export SpreadingModel, get_seeded_rng
+export get_angle, get_angles, 
+       get_central_angle, get_central_angles, 
+       get_bandwidth, get_bandwidths, get_weights
 
 """
     SpreadingModel{D<:UnivariateDistribution, T<:Real}
@@ -18,8 +21,9 @@ A structure to define angular spreading models for wave spectra.
 - `nθ`: Number of discrete angles to sample from the distribution.
 """
 struct SpreadingModel{D<:UnivariateDistribution, T<:Real}
-    distribution::TruncatedModel{D, T}
-    nθ::Int
+    distribution::TruncatedModel{D, T}  # Truncated angular distribution
+    nθ::Int64                           # Number of discrete angles
+    seed::Int64                         # Random seed for reproducibility
 end
 
 """
@@ -29,7 +33,7 @@ Creates a SpreadingModel by truncating the given univariate distribution between
 """
 function SpreadingModel(dist::UnivariateDistribution, a::Real, b::Real, nθ::Int)
     truncated = TruncatedModel(dist, a, b)
-    return SpreadingModel{typeof(dist), typeof(a)}(truncated, nθ)
+    return SpreadingModel{typeof(dist), Int64, Int64}(truncated, nθ, Random.seed!())
 end
 
 """
@@ -82,63 +86,113 @@ function SpreadingModel(model_type::Symbol, μ::T, σ::T, a::T, b::T, nθ::Int) 
         truncated_dist = TruncatedModel(base_dist, a, b)
     end
     
-    return SpreadingModel{typeof(base_dist), T}(truncated_dist, nθ)
+    return SpreadingModel{typeof(base_dist), Int64, Int64}(truncated_dist, nθ, Random.seed!())
 end
+
+# --- Seed Management ---
+
+# Helper to handle the "Any" RNG type and seed initialization
+function get_seeded_rng(seed::Int64)
+    return Random.MersenneTwister(seed) # Or Xoshiro(seed)
+end
+
+function change_seed!(sm::SpreadingModel, new_seed::Int)
+    return SpreadingModel(sm.distribution, sm.nθ, new_seed)
+end
+
+function change_seed!(sm::SpreadingModel)
+    return change_seed!(sm, rand(1:10^9))
+end
+
+# -----------------------
 
 # --- Attributes & Sampling ---
 
 """
-    get_angles(sm::SpreadingModel; rng=Random.GLOBAL_RNG)
+    get_angles(sm::SpreadingModel, rng=AbstractRNG)
 Returns n_theta random angles sampled from the truncated distribution.
 """
-function get_angles(sm::SpreadingModel; rng::AbstractRNG=Random.GLOBAL_RNG)
-    # Sample nθ angles from the truncated distribution
-    θⱼ = sort([rand(rng, sm.distribution) for _ in 1:sm.nθ])
-    # Compute bins' widths
-    Δθⱼ = diff(θⱼ) 
-    push!(Δθⱼ,Δθⱼ[end]) # last bin = second last bin
+function get_angles(sm::SpreadingModel)
+    return sort(rand(get_seeded_rng(sm.seed), sm.distribution, sm.nθ))
+end
 
-    return θⱼ, Δθⱼ
+function get_angles(sm::SpreadingModel, r::AbstractRange)
+    start_idx = max(1, first(r))
+    end_idx   = min(last(r), sm.nθ)
+    (start_idx > end_idx) && return Float64[]
+    return get_angles(sm)[start_idx:end_idx]
+end
+
+function get_angle(sm::SpreadingModel, idx::Int)
+    (idx < 1 || idx > sm.nθ) && Float64[]
+    return get_angles(sm)[idx]
 end
 
 """
-    get_weights(sm::SpreadingModel, angles::Vector{Real})
-Returns the PDF values at specific angles. Because the angles are sampled 
-from the distribution itself, the weights for a Monte Carlo sum would 
-actually be 1/n_theta, but we provide the PDF values here for completeness.
+    get_central_angles(sm::SpreadingModel)
+Returns the nθ - 1 central angles between the sampled edges.
 """
-function get_weights(sm::SpreadingModel, θⱼ::Vector{<:Real})
-    # PDF values at sampled angles
+function get_central_angles(sm::SpreadingModel)
+    angles = get_angles(sm)
+    # Compute midpoints: (θ_{j} + θ_{j+1}) / 2
+    return (angles[1:end-1] .+ angles[2:end]) ./ 2.0
+end
+
+function get_central_angles(sm::SpreadingModel, r::AbstractRange)
+    start_idx = max(1, first(r))
+    end_idx   = min(last(r)-1, sm.nθ-1)
+    (start_idx > end_idx) && return Float64[]
+    return get_central_angles(sm)[start_idx:end_idx]
+end
+
+function get_central_angle(sm::SpreadingModel, idx::Int)
+    (idx < 1 || idx > sm.nθ - 1) && return Float64[]
+    return get_central_angles(sm)[idx]
+end
+
+"""
+    get_bandwidths(sm::SpreadingModel)
+Returns the Δθ for the nθ - 1 bins.
+"""
+function get_bandwidths(sm::SpreadingModel)
+    return diff(get_angles(sm))
+end
+
+function get_bandwidths(sm::SpreadingModel, r::AbstractRange)
+    start_idx = max(1, first(r))
+    end_idx   = min(last(r)-1, sm.nθ-1)
+    (start_idx > end_idx) && return Float64[]
+    return get_bandwidths(sm)[start_idx:end_idx]
+end
+
+function get_bandwidth(sm::SpreadingModel, idx::Int)
+    (idx < 1 || idx > sm.nθ - 1) && return Float64[]
+    return get_bandwidths(sm)[idx]
+end
+
+"""
+    get_weights(sm::SpreadingModel)
+
+Returns the PDF values at central bins angles, corrected for discrete sampling.
+"""
+function get_weights(sm::SpreadingModel)
+    # Compute central angles
+    θⱼ = get_central_angles(sm)
+    # PDF values at central angles
     weights = [pdf(sm.distribution, θ) for θ in θⱼ]
     # Compute bins' widths
-    Δθⱼ = diff(θⱼ) 
-    push!(Δθⱼ,Δθⱼ[end]) # last bin = second last bin
-    # Compute total discrete probability (check normalisation) 
-    Σ_θⱼ = sum(weights.*Δθⱼ)
-    
-    return Δθⱼ, weights/Σ_θⱼ
-end
-
-
-"""
-    get_angles_weights(sm::SpreadingModel; rng=Random.GLOBAL_RNG)
-
-Returns a Tuple of (angles, weights).
-- `angles`: n_theta samples drawn from the distribution (Importance Sampling).
-- `weights`: The PDF values at those specific samples.
-
-This is the primary function for 3D Spectral initialization.
-"""
-function get_angles_weights(sm::SpreadingModel; rng::AbstractRNG=Random.GLOBAL_RNG)
-    # 1. Sample angles based on the distribution shape
-    θⱼ, Δθⱼ = get_angles(sm; rng=rng)
-    # 2. Calculate the PDF weights at these specific points
-    weights = [pdf(sm.distribution, θ) for θ in θⱼ]
+    Δθⱼ = get_bandwidths(sm)
     # Compute total discrete probability (check normalisation) 
     Σ_θⱼ = sum(weights.*Δθⱼ)
 
-    return θⱼ, Δθⱼ, weights/Σ_θⱼ
+    return weights/Σ_θⱼ
 end
 
+function get_weights(sm::SpreadingModel, r::AbstractRange)
+    start_idx = max(1, first(r))
+    end_idx   = min(last(r)-1, sm.nθ-1)
+    (start_idx > end_idx) && return Float64[]
+    return get_weights(sm)[start_idx:end_idx]
+end
 
 end # module AngularSpreading
