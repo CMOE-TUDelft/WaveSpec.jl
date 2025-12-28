@@ -1,11 +1,12 @@
 module AiryWaves
 
 using Random
+using ..FrequencySampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
 
-export AiryState, generate_airy_function
+export AiryState, sea_profiles, get_amplitude, get_random_phases
 
 """
     AiryState
@@ -24,7 +25,7 @@ struct AiryState
     seed::Int64                 # Random seed for reproducibility
 end
 
-function AiryState(spec::DiscreteSpectrum, spread::AbstractAngularSpreading, h::Real)
+function AiryState(spec::DiscreteSpectrum, spread::SpreadingModel, h::Real)
     # 1. Radian frequencies from the discrete frequency model
     nω = spec.nbands
     ω_vec = 2π .* get_central_frequencies(spec)
@@ -152,11 +153,11 @@ function sea_profiles(state::AiryState, x, y, z, t)
 end
 
 
-function get_amplitudes(state::Airystate)
+function get_amplitudes(state::AiryState)
 
     # Metadata
     Aω = get_amplitudes(state.spectrum)   # Spectral densities at central frequencies   Aω: (nω,)
-    Δθ = get_bandwidth(state.spread)      # Angle bin widths                            Δθ: (nθ,)
+    Δθ = get_bandwidths(state.spread)     # Angle bin widths                            Δθ: (nθ,)
     Dθ = get_weights(state.spread)        # Directional spreading weights               Dθ: (nθ,)
 
     # Amplitudes Matrix  A_ij: (nω × nθ)

@@ -51,7 +51,7 @@ The mapping used is:
     x = (b-a)/2 * ξ + (a+b)/2
     dx = (b-a)/2 * dξ
 """
-function gaussQuad1D_4(f::Function, a::Real, b::Real, N::Int)
+function gaussQuad1D_4(f::Function, a::Float64, b::Float64, N::Int64)
     nodes = (-0.8611363115940526, -0.3399810435848563,  0.3399810435848563,  0.8611363115940526)
     weights = (0.3478548451374538, 0.6521451548625461, 0.6521451548625461, 0.3478548451374538)
 

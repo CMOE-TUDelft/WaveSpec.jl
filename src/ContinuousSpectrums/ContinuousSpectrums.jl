@@ -1,7 +1,7 @@
 module ContinuousSpectrums
 
 using ..Integration
-using ..Utils.Truncation
+using ..Truncation
 
 export AbstractSpectrum, JONSWAP, PiersonMoskowitz, TMA, 
        get_density, get_cumulative_energy

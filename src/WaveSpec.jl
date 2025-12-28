@@ -1,19 +1,24 @@
 module WaveSpec
 
-# 1. Include the foundational utilities first
+# Include the foundational utilities first
+include("Utils/PhysicalConstants.jl")
 include("Utils/Truncation.jl")
-@reexport using .Truncation
+include("Utils/Integration.jl")
 
-# 2. Include the Spreading modules (which depend on Truncation)
+# Include Continuous Spectrums module
+include("ContinuousSpectrums/ContinuousSpectrums.jl")
+
+# Inlcude Spectral Samplings strategies
+include("FrequencySampling.jl")
+
+# Include the Discrete Spectrums module
 include("SpectralSpreading.jl")
-@reexport using .SpectralSpreading
 
+# Include Angular Spreading module
 include("AngularSpreading/AngularSpreading.jl")
-@reexport using .AngularSpreading
 
-# 3. Include the Physics/Synthesis module (which depends on the above)
+# Include the Physics/Synthesis module 
 include("AiryWaves.jl")
-@reexport using .AiryWaves
 
 
 """

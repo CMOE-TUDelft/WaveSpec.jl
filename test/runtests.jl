@@ -2,9 +2,9 @@ module WaveSpecTests
 
 using Test
 
-@time @testset "Continuous Spectrums" begin include("ContinuousSpectrums/runtests.jl") end
+@time @testset "Continuous Spectrums" begin include("ContinuousSpectrumsTests/runtests.jl") end
 
-@time @testset "Discrete Spectrums" begin include("test_DiscreteSpectrum.jl") end
+@time @testset "Discrete Spectrums" begin include("DiscreteSpectrumsTests/runtests.jl") end
 
 @time @testset "Angular Spreading Models" begin include("AngularSpreadingTests/runtests.jl") end
 
