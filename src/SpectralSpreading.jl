@@ -1,7 +1,7 @@
 module SpectralSpreading
 
 using ..FrequencySampling
-using ..EnergySpectrum
+using ..ContinuousSpectrums
 using ..Integration
 
 export DiscreteSpectrum

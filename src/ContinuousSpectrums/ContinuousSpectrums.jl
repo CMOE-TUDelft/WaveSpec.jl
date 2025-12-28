@@ -1,4 +1,4 @@
-module EnergySpectrum
+module ContinuousSpectrums
 
 using ..Integration
 using ..Utils.Truncation

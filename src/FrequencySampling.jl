@@ -1,6 +1,6 @@
 module FrequencySampling
 
-using ..EnergySpectrum
+using ..ContinuousSpectrums
 using ..Integration
 
 export AbstractSampling, UniformSampling, LogSampling, ChebyshevSampling
