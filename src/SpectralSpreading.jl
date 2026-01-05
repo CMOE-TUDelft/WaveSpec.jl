@@ -18,11 +18,12 @@ Represents the energy distribution across a finite set of frequency bins.
 struct DiscreteSpectrum
     spectrum::AbstractSpectrum  # The underlying continuous spectrum (JONSWAP, etc.)
     sampling::AbstractSampling  # The sampling strategy used
-    fmin::Float64               # Lower frequency [Hz]
-    fmax::Float64               # Upper frequency [Hz]
+    domain::SamplingDomain      # Domain over which the spectral sampling is done (Frequency/Energy)
+    fmin::Real                  # Lower frequency [Hz]
+    fmax::Real                  # Upper frequency [Hz]
     nf::Int                     # Number of frequency samples
     nbands::Int                 # Number of frequency bands ( = nf -1 )
-    norm_factor::Float64        # Normalization factor applied
+    norm_factor::Real           # Normalization factor applied
 end
 
 # --- CONSTRUCTOR ---
@@ -32,9 +33,9 @@ end
 
 Continuous abstract spectrum discretised according to the selected abstract sampling strategy, between fmin and fmax with nf bins.
 """
-function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin::Real, fmax::Real, nf::Int, mess::Bool=true)
+function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin::Real, fmax::Real, nf::Int; domain::SamplingDomain = Frequency, mess::Bool=true)
     # 1. Generate the nf edges
-    freqs = FrequencySampling.generate_grid(strat, shape, fmin, fmax, nf)
+    freqs = FrequencySampling.generate_grid(strat, domain, shape, fmin, fmax, nf)
     
     # 2. Compute bandwidths and centers for the nf-1 bins
     # Bandwidths: df = f[i+1] - f[i]
@@ -43,7 +44,7 @@ function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin
     central_freqs = (freqs[1:end-1] + freqs[2:end]) ./ 2.0
     
     # 2. Sample the density from the continuous model at central frequencies
-    densities = [get_density(shape, f) for f in central_freqs]
+    densities = [ContinuousSpectrums.get_density(shape, f) for f in central_freqs]
 
     # 4. Compute moments with discretization error
     m₀ = sum(densities .* dfs)
@@ -69,7 +70,7 @@ function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin
         println("----------------------------")
     end
 
-    return DiscreteSpectrum(shape, strat, fmin, fmax, nf, nf-1, norm_factor)
+    return DiscreteSpectrum(shape, strat, domain, fmin, fmax, nf, nf-1, norm_factor)
 end
 
 
@@ -83,7 +84,7 @@ end
 Returns the discrete frequency bins and their widths.
 """
 function get_frequencies(spec::DiscreteSpectrum)
-    return FrequencySampling.generate_grid(spec.sampling, spec.spectrum, spec.fmin, spec.fmax, spec.nf)
+    return FrequencySampling.generate_grid(spec.sampling, spec.domain, spec.spectrum, spec.fmin, spec.fmax, spec.nf)
 end
 
 function get_frequencies(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
@@ -226,7 +227,7 @@ function get_density(spec::DiscreteSpectrum, idx::Int)
     # Get the central frequency for the bin
     fᵢ = get_central_frequency(spec, idx)
     # Calculate density on the requested bin
-    return get_density(spec.spectrum, fᵢ) * spec.norm_factor
+    return ContinuousSpectrums.get_density(spec.spectrum, fᵢ) * spec.norm_factor
 end
 
 """
@@ -235,7 +236,7 @@ end
 Returns corrected spectral densities S(fᵢ) for all bins.
 """
 function get_densities(spec::DiscreteSpectrum)
-    return [get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec)]
+    return [ContinuousSpectrums.get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec)]
 end
 
 """
@@ -252,8 +253,17 @@ function get_densities(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
     (start_idx > end_idx) && return Float64[]
 
     # Calculate densities only for the requested range
-    return [get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec, start_idx:end_idx)]
+    return [ContinuousSpectrums.get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec, start_idx:end_idx)]
 end
+
+
+
+# function get_densities(spec::DiscreteSpectrum)
+#     # Compute densities at bin edges
+#     S_edges = [ContinuousSpectrums.get_density(spec.spectrum, f) * spec.norm_factor for f in get_frequencies(spec)]
+#     # Trapezoidal rule
+#     return (S_edges[1:end-1] .+ S_edges[2:end]) ./ 2.0
+# end
 
 # ---------------------------------------------
 
@@ -282,7 +292,7 @@ end
 
 Returns corrected wave amplitudes A(fᵢ) for the specified bin range.
 """
-function get_amplitudes(spec::DiscreteSpectrum, r::AbstractUnitRange{Int}=1:spec.nbands)
+function get_amplitudes(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
     # Safety: Clamp indexes
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)

@@ -23,13 +23,14 @@ struct JONSWAP{T<:Real} <: AbstractSpectrum
 end
 
 # --- 1. Full Constructor (All parameters provided) ---
-# This is your primary entry point
-function JONSWAP(Hs::T, Tp::T, γ::T) where {T<:Real}
+# This is primary entry point
+function JONSWAP(Hs::Real, Tp::Real, γ::Real)
+    T = promote_type(typeof(Hs), typeof(Tp), typeof(γ))
     fp = 1.0 / Tp                       
     Ag = compute_normalization(γ)
     ωp = 2π / Tp
-    σ₁ = 0.07           # 0.0547*fpeak^0.32
-    σ₂ = 0.09           # 0.0783*fpeak^0.16
+    σ₁ = 0.07           
+    σ₂ = 0.09           
     return JONSWAP{T}(Hs, Tp, fp, γ, Ag, ωp, σ₁, σ₂)
 end
 
@@ -40,19 +41,28 @@ function JONSWAP(Hs::Real, Tp::Real)
     return JONSWAP(Hs, Tp, est_γ)
 end
 
-# --- 3. Partial Constructor (Tp and γ only) ---
-# Automatically estimates Hs using your estimate_Hs utility
-# Useful for "Standard" sea states where height is defined by period
-function JONSWAP(;Tp::Real, γ::Real=3.3)
-    est_Hs = estimate_Hs(Tp, γ)
-    return JONSWAP(est_Hs, Tp, γ)
-end
+# --- 3. Unified Keyword Partial Constructor 
+# Instead of two separate functions, use one that checks what was provided
+function JONSWAP(;Hs::Union{Real, Nothing}=nothing, 
+                  Tp::Union{Real, Nothing}=nothing, 
+                  γ::Real=3.3)
+    
+    # Case 1: Hs and Tp keywords are provided
+    if !isnothing(Hs) && !isnothing(Tp)
+        return JONSWAP(Hs, Tp, γ)
 
-# --- 4. Partial Constructor (Hs and γonly) ---
-# Assuming a standard steepness to estimate a reasonable Tp, then estimating γ   
-function JONSWAP(Hs::Real, γ::Real=3.3)
-    est_Tp = estimate_Tp(Hs, γ)
-    return JONSWAP(Hs, est_Tp, γ)
+    # Case 2: Tp keyword is provided
+    elseif !isnothing(Tp)
+        est_Hs = estimate_Hs(Tp, γ)
+        return JONSWAP(est_Hs, Tp, γ)
+
+    # Case 3: Hs keyword is provided
+    elseif !isnothing(Hs)
+        est_Tp = estimate_Tp(Hs, γ)
+        return JONSWAP(Hs, est_Tp, γ)
+    else
+        throw(ArgumentError("You must provide at least Hs or Tp to create a JONSWAP spectrum"))
+    end
 end
 
 """

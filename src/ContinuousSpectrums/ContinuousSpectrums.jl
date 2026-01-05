@@ -3,8 +3,9 @@ module ContinuousSpectrums
 using ..Integration
 using ..Truncation
 
-export AbstractSpectrum, JONSWAP, PiersonMoskowitz, TMA, 
-       get_density, get_cumulative_energy
+export AbstractSpectrum
+export JONSWAP, PiersonMoskowitz, TMA 
+export get_fmax, get_fmin, get_density, get_cumulative_energy
 
 # All spectrum models which are defined in this folder/module will inherit from abstract type AbstractSpectrum.
 abstract type AbstractSpectrum end
@@ -42,7 +43,11 @@ based on the peak frequency: f_max = multiplier * f_p.
 According to literature, f_max between 3 to 5 times f_p is sufficient to capture more than 99% of the energy.
 """
 function get_fmax(s::AbstractSpectrum; multiplier=5.0)
-    return multiplier * get_fp(s)
+    return multiplier * s.fp
+end
+
+function get_fmin(s::AbstractSpectrum; multiplier=1e-4)
+    return multiplier * s.fp
 end
 
 
@@ -52,7 +57,7 @@ end
 Compute the CDF of abstract spectrum.
 """
 function get_cumulative_energy(s::AbstractSpectrum, f::Real, n_points::Int=1000)
-    fs = range(1e-4, f, length=n_points)
+    fs = range(get_fmin(s), f, length=n_points)
     df = fs[2] - fs[1]
     densities = [get_density(s, fi) for fi in fs]
     return fs, cumsum(densities) .* df

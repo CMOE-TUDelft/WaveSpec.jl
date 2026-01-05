@@ -17,14 +17,15 @@ struct DonelanBannerDistribution{T<:Real} <: ContinuousUnivariateDistribution
     β::T               # Spreading parameter
 end
 
-# Inner constructor with validation
-function DonelanBannerDistribution(μ::T, β::T) where {T<:Real}
+function DonelanBannerDistribution(μ::Real, β::Real)
     β > 0 || throw(ArgumentError("Spreading parameter β must be positive"))
-    return DonelanBannerDistribution{T}(μ, β)
+    
+    # promote ensures both are the same type (e.g., Int and Float64 -> both Float64)
+    μ_prom, β_prom = promote(μ, β)
+    T = typeof(μ_prom)
+    
+    return DonelanBannerDistribution{T}(μ_prom, β_prom)
 end
-
-# Outer constructor
-DonelanBannerDistribution(μ::Real, β::Real) = DonelanBannerDistribution(promote(μ, β)...)
 
 # --- PDF ---
 # D(θ) = (β/2) * sech²(β(θ - μ))
