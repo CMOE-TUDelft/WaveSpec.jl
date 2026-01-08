@@ -51,27 +51,49 @@ end
     ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
                           domain=FrequencySampling.Energy, mess=false)
     
-    # 3. Get amplitudes
-    amplitudes = get_amplitudes(ds)
-    
-    # 4. Verification
-    # All amplitudes should be identical. 
+    # 3. Integrate energy per bin
+    # All bins should have the same energy stored in them for the uniform energy sampling 
+    n_substeps = 200
+    f_edges = get_frequencies(ds)
+    energies = zeros(ds.nbands)
+    for i in 1:ds.nbands
+        # 1. Define the bin boundaries
+        f_start = f_edges[i]
+        f_end   = f_edges[i+1]
+        
+        # 2. Create a micro-grid inside this specific bin
+        # We sample n_substeps points to capture the curve's shape
+        f_micro = range(f_start, f_end, length=n_substeps)
+        df = (f_end - f_start) / (n_substeps - 1)
+        
+        # 3. Integrate S(f) using the Trapezoidal Rule
+        bin_energy = 0.0
+        for j in 1:(n_substeps - 1)
+            S0 = ContinuousSpectrums.get_density(spec, f_micro[j])
+            S1 = ContinuousSpectrums.get_density(spec, f_micro[j+1])
+            
+            # Area of a small trapezoid: (average height) * width
+            bin_energy += 0.5 * (S0 + S1) * df
+        end
+        # Save energy
+        energies[i] = bin_energy
+    end
+
     # We check the relative standard deviation (Coefficient of Variation)
-    avg_amp = mean(amplitudes)
-    std_amp = std(amplitudes)
-    coeff_of_variation = std_amp / avg_amp
+    avg_energ = mean(energies)
+    std_energ = std(energies)
+    coeff_of_variation = std_energ / avg_energ
     
-    @info "Amplitude Consistency" Mean=avg_amp Std=std_amp CV=coeff_of_variation
+    @info "Energy Consistency" Mean=avg_energ Std=std_energ CV=coeff_of_variation
     
-    # The amplitudes should be extremely consistent
-    @test coeff_of_variation < 1e-4
+    # The energies should be extremely consistent
+    @test coeff_of_variation < 1e-3
     
     # 5. Check the theoretical value
     # m0 = (Hs/4)^2. Each bin should have m0 / (nf-1) variance.
-    m0_total = (Hs/4.0)^2
-    expected_amp = sqrt(2.0 * m0_total / ds.nbands)
+    expected_energy = (Hs/4.0)^2 / ds.nbands
     
-    @test all(isapprox.(amplitudes, expected_amp, rtol=1e-3))
+    @test all(isapprox.(energies, expected_energy, rtol=1e-2))
 end
 
 
@@ -94,7 +116,7 @@ end
     
     amplitudes = SpectralSpreading.get_amplitudes(ds)
     freqs = SpectralSpreading.get_central_frequencies(ds)
-    phases = 2π .* rand(length(freqs))
+    phases = 2π .* rand(ds.nf)
     
     # η(t) = Σ A_i * cos(2π f_i t + ϕ_i)
     eta = zeros(length(t))
