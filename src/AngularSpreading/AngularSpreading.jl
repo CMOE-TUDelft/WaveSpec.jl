@@ -2,6 +2,7 @@ module AngularSpreading
 
 using Distributions
 using Random
+using RecipesBase
 using ..Truncation
 
 include("CosinePower.jl")
@@ -12,6 +13,7 @@ export SpreadingModel, get_seeded_rng
 export get_angle, get_angles, 
        get_central_angle, get_central_angles, 
        get_bandwidth, get_bandwidths, get_weights
+export plot_model
 
 """
     SpreadingModel{D<:UnivariateDistribution, T<:Real}
@@ -33,7 +35,7 @@ Creates a SpreadingModel by truncating the given univariate distribution between
 """
 function SpreadingModel(dist::UnivariateDistribution, a::Real, b::Real, nθ::Int)
     truncated = TruncatedModel(dist, a, b)
-    return SpreadingModel{typeof(dist), Int64, Int64}(truncated, nθ, Random.seed!())
+    return SpreadingModel(truncated, nθ, abs(rand(Int64)))
 end
 
 """
@@ -86,7 +88,11 @@ function SpreadingModel(model_type::Symbol, μ::T, σ::T, a::T, b::T, nθ::Int) 
         truncated_dist = TruncatedModel(base_dist, a, b)
     end
     
-    return SpreadingModel{typeof(base_dist), Int64, Int64}(truncated_dist, nθ, Random.seed!())
+    return SpreadingModel(truncated_dist, nθ, abs(rand(Int64)))
+end
+
+function SpreadingModel(dist::TruncatedModel{D, T}, nθ::Integer, seed::Integer) where {D, T}
+    return SpreadingModel{D, T}(dist, Int64(nθ), Int64(seed))
 end
 
 # --- Seed Management ---
@@ -97,6 +103,7 @@ function get_seeded_rng(seed::Int64)
 end
 
 function change_seed!(sm::SpreadingModel, new_seed::Int)
+    if new_seed < 0 throw(ArgumentError("new_seed must be non-negative (received $new_seed).")) end
     return SpreadingModel(sm.distribution, sm.nθ, new_seed)
 end
 
@@ -193,6 +200,57 @@ function get_weights(sm::SpreadingModel, r::AbstractRange)
     end_idx   = min(last(r)-1, sm.nθ-1)
     (start_idx > end_idx) && return Float64[]
     return get_weights(sm)[start_idx:end_idx]
+end
+
+
+# --- Plots and Visualisation ---
+# Plot using light package RecipesBase:
+#   1. import Plots in script
+#   2. Call this function as plot(SpreadingModel)
+
+@recipe function f(sm::SpreadingModel; n_points=200)
+    # Plot Attributes
+    title  := "Angular spreading discretization"
+    xlabel := "Angle θ (º)"
+    ylabel := "Probability density"
+    grid   := false
+
+    # Get plot range
+    a, b = sm.distribution.a, sm.distribution.b
+    θ_range = range(a, b, length=n_points)
+    
+    # Define the first series: The Continuous Line
+    @series begin
+        label := "Continuous PDF"
+        seriestype := :path
+        fillrange := 0
+        fillalpha := 0.2
+        linecolor := :black
+        θ_range, [pdf(sm.distribution, θ) for θ in θ_range]
+    end
+
+    # Define the second series: The Stems/Samples
+    θ_samples = get_angles(sm)
+    weights = [pdf(sm.distribution, θ) for θ in θ_samples]
+    
+    @series begin
+        label := "Discrete Samples"
+        seriestype := :scatter
+        marker := :circle
+        markersize := 3
+        markercolor := :red
+        θ_samples, weights
+    end
+    
+    # Stem lines logic
+    for (t, w) in zip(θ_samples, weights)
+        @series begin
+            label := false
+            seriestype := :path
+            linecolor := :red
+            [t, t], [0, w]
+        end
+    end
 end
 
 end # module AngularSpreading

@@ -5,7 +5,8 @@ using ..Truncation
 
 export AbstractSpectrum
 export JONSWAP, PiersonMoskowitz, TMA 
-export get_fmax, get_fmin, get_density, get_cumulative_energy
+export get_fmax, get_fmin, get_density
+export integrate, get_cumulative_energy
 
 # All spectrum models which are defined in this folder/module will inherit from abstract type AbstractSpectrum.
 abstract type AbstractSpectrum end
@@ -33,7 +34,7 @@ include("Donelan.jl")
 include("OchiHubble.jl")
 
 
-# --- SPECTRUM UTILITIES ---
+# --- SPECTRAL RANGE ---
 
 """
     get_fmax(s::AbstractSpectrum; multiplier=5.0)
@@ -50,18 +51,53 @@ function get_fmin(s::AbstractSpectrum; multiplier=1e-4)
     return multiplier * s.fp
 end
 
+# ----------------------
 
-"""
-    get_cumulative_energy(s::AbstractSpectrum, f, n_points=1000)
+# --- SPECTRAL INTEGRATION ---
 
-Compute the CDF of abstract spectrum.
+""" 
+    integrate(s::AbstractSpectrum, fmin, fmax; npoints, method=:symbol, order)
+
+Returns the numeric integral of the spectrum between fmin and fmax, using npoints-1 bins 
+and the selected method of integration 
 """
-function get_cumulative_energy(s::AbstractSpectrum, f::Real, n_points::Int=1000)
-    fs = range(get_fmin(s), f, length=n_points)
-    df = fs[2] - fs[1]
-    densities = [get_density(s, fi) for fi in fs]
-    return fs, cumsum(densities) .* df
+function integrate(s::AbstractSpectrum, fmin::Real, fmax::Real; npoints::Int=100, method::Symbol=:gauss, order::Int=2) 
+    if method == :gauss
+        return IntegrateGaussQuad(f -> get_density(s, f); order = order, a = fmin, b = fmax, n = npoints)
+    elseif method == :trapezoidal 
+        return IntegrateTrapezoidal(f -> get_density(s, f); a = fmin, b = fmax, n = npoints)
+    else
+        throw(ArgumentError("Integration method :$method not recognized. Use :gauss or :trapezoidal."))
+    end
 end
 
+# Integrate entire spectrum 
+function integrate(s::AbstractSpectrum; npoints::Int=200, method::Symbol=:gauss, order::Int=2) 
+    if method == :gauss
+        return IntegrateGaussQuad(f -> get_density(s, f); order = order, a = get_fmin(s), b = get_fmax(s), n = npoints)
+    elseif method == :trapezoidal 
+        return IntegrateTrapezoidal(f -> get_density(s, f); a = get_fmin(s), b = get_fmax(s), n = npoints)
+    else
+        throw(ArgumentError("Integration method :$method not recognized. Use :gauss or :trapezoidal."))
+    end
+end
+
+"""
+    get_cumulative_energy(s::AbstractSpectrum, f::Real, npoints, method=:symbol, order)
+
+Compute the CDF of abstract spectrum at frequency f, using npoints-1 bins 
+and the selected method of integration. 
+"""
+function get_cumulative_energy(s::AbstractSpectrum, f::Real; npoints::Int=100, method::Symbol=:gauss, order::Int=2)
+    if method == :gauss
+        return IntegrateGaussQuad(f -> get_density(s, f); order = order, a = get_fmin(s), b = f, n = npoints)
+    elseif method == :trapezoidal 
+        return IntegrateTrapezoidal(f -> get_density(s, f); a = get_fmin(s), b = f, n = npoints)
+    else
+        throw(ArgumentError("Integration method :$method not recognized. Use :gauss or :trapezoidal."))
+    end
+end
+
+# ---------------------------
 
 end # module

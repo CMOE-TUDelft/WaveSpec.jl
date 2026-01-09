@@ -82,6 +82,6 @@ function compute_donelan_normalization(γ::Real, fp::Real)
     end
 
     # Integrate from near 0 to high frequency
-    total_area = gaussQuad1D_4(donelan_shape, 1e-4, 15.0, 250)
+    total_area = IntegrateGaussQuad(donelan_shape, order=4, a=1e-4, b=15.0, n=250)
     return 1.0 / total_area
 end

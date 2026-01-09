@@ -165,7 +165,7 @@ function compute_normalization(γ::Real)
     # Integrate the "unit" JONSWAP spectrum from ~0 to a very high fr to capture the tail
     # Lower integration bound   a = 1e-4 * fp = 1e-4 * 1.0 = 1e-4
     # Upper integration bound   b = 20.0 * fp = 20.0 * 1.0 = 20.0
-    total_area = gaussQuad1D_4(G_fr, 1e-4, 20.0, 200)
+    total_area = IntegrateGaussQuad(G_fr, order=4, a=1e-4, b=20.0, n=200)
 
     return 1.0 / total_area
 end

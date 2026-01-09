@@ -28,16 +28,16 @@ end
 function AiryState(spec::DiscreteSpectrum, spread::SpreadingModel, h::Real)
     # 1. Radian frequencies from the discrete frequency model
     nω = spec.nbands
-    ω_vec = 2π .* get_central_frequencies(spec)
+    ω_vec = 2π .* SpectralSpreading.get_central_frequencies(spec)
     
     # 2. Angles from the spreading model
     nθ = spread.nθ - 1
-    θ_vec = get_central_angles(spread)
+    θ_vec = AngularSpreading.get_central_angles(spread)
     
     # 3. Solve dispersion once for the frequency vector
     k_vec = [solve_wavenumber(w, h) for w in ω_vec]
 
-    return AiryState(spec, spread, nω, nθ, ω_vec, k_vec, θ_vec, Float64(h), Random.seed!())
+    return AiryState(spec, spread, nω, nθ, ω_vec, k_vec, θ_vec, Float64(h), abs(rand(Int64)))
 end
 
 
@@ -71,6 +71,7 @@ function get_seeded_rng(seed::Int64)
 end
 
 function change_seed!(state::AiryState, new_seed::Int)
+    if new_seed < 0 throw(ArgumentError("new_seed must be non-negative (received $new_seed).")) end
     return AiryState(state.spec, state.spread, state.nω, state.nθ, state.ω, state.k, state.θ, state.h, new_seed)
 end
 
@@ -120,8 +121,12 @@ These elements are combined to compute the sea surface elevation and velocity co
 """
     sea_profiles(state::AiryState, x, y, z, t)
 
-The main evaluation engine. Computes η, u, v, w for a single point.
+The main evaluation engine. Computes η, u, v, w for a 4D grids (x, y, z, t).
 Everything is computed on-the-fly to minimize memory footprint.
+The trick to compute the series is to expand all items to 6 dimensional tensors 
+with dimensional structure 
+                T = (x, y, z, t, ω, θ)
+and then contract the last 2 dimensions (ω and θ) to sum the series components.
 """
 function sea_profiles(state::AiryState, x, y, z, t)
 
@@ -131,23 +136,46 @@ function sea_profiles(state::AiryState, x, y, z, t)
     # Random phases for all components   ϕ_ij: (nω × nθ)
     ϕ_ij = get_random_phases(state)       
 
-    # Pre-compute phases   ψ_ij: (nω × nθ)
-    ψ_ij = state.k .* ( x .* cos.(state.θ) .+ y .* sin.(state.θ) )' .- state.ω .* t .+ ϕ_ij
+    ## Reshape elements to 6 dimensional tensors
+    # Reshape Spectral Components to [1, 1, 1, 1, nω, nθ]
+    A = reshape(A_ij, 1, 1, 1, 1, state.nω, state.nθ)
+    ϕ = reshape(ϕ_ij, 1, 1, 1, 1, state.nω, state.nθ)
+    ω = reshape(state.ω, 1, 1, 1, 1, state.nω, 1)
+    θ = reshape(state.θ, 1, 1, 1, 1, 1, state.nθ)
+    k = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
 
-    # Vertical Coefficients (nω,)
+    # Reshape Evaluation Coordinates
+    X = reshape(x, :, 1, 1, 1, 1, 1) # Dim 1
+    Y = reshape(y, 1, :, 1, 1, 1, 1) # Dim 2
+    Z = reshape(z, 1, 1, :, 1, 1, 1) # Dim 3
+    T = reshape(t, 1, 1, 1, :, 1, 1) # Dim 4
+
+    # Phase Tensor Construction (nx × ny × nz × nt × nω × nθ)
+    # ψ = k*(x*cosθ + y*sinθ) - ωt + ϕ
+    ψ = k .* ( X .* cos.(θ) .+ Y .* sin.(θ) ) .- (ω .* T) .+ ϕ
+
+    # Vertical Coefficients (Expanded to handle Z and k simultaneously)
     # We apply the check per-frequency to handle different wave lengths correctly
-    kh = state.k .* state.h
-    kzh = state.k .* (z + state.h)
+    kh = state.k .* state.h  # (nω, )
+    # Reshape k and kh for Dim 5 (ω)
+    k_reshaped  = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
+    kh_reshaped = reshape(kh, 1, 1, 1, 1, state.nω, 1)
+    h = state.h
+
+    # coeff_H/V will be (1 × 1 × nz × 1 × nω × 1)
+    coeff_H = ifelse.(kh_reshaped .< 20.0, 
+                cosh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
+                exp.(k_reshaped .* Z))
     
-    # Vectorized conditional: use ifelse. to prevent branching in the loop  (nω,)
-    coeff_H = ifelse.(kh .< 20.0, cosh.(kzh) ./ sinh.(kh), exp.(state.k .* z))
-    coeff_V = ifelse.(kh .< 20.0, sinh.(kzh) ./ sinh.(kh), exp.(state.k .* z))
+    coeff_V = ifelse.(kh_reshaped .< 20.0, 
+                sinh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
+                exp.(k_reshaped .* Z))
 
     # Compute profiles by summing over all components
-    η = sum( A_ij .* cos.(ψ_ij) )
-    u = sum( A_ij .* (( state.ω .* coeff_H ) .* cos.(state.θ)') .* cos.(ψ_ij) )
-    v = sum( A_ij .* (( state.ω .* coeff_H ) .* sin.(state.θ)') .* cos.(ψ_ij) )
-    w = sum( A_ij .* state.ω .* coeff_V .* sin.(ψ_ij) )
+    η = dropdims(sum( A .* cos.(ψ), dims=(5,6)), dims=(5,6))
+    u = dropdims(sum( A .* (ω .* coeff_H .* cos.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
+    v = dropdims(sum( A .* (ω .* coeff_H .* sin.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
+    w = dropdims(sum( A .* (ω .* coeff_V) .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
     
     return (η=η, u=u, v=v, w=w)
 end
@@ -156,9 +184,9 @@ end
 function get_amplitudes(state::AiryState)
 
     # Metadata
-    Aω = get_amplitudes(state.spectrum)   # Spectral densities at central frequencies   Aω: (nω,)
-    Δθ = get_bandwidths(state.spread)     # Angle bin widths                            Δθ: (nθ,)
-    Dθ = get_weights(state.spread)        # Directional spreading weights               Dθ: (nθ,)
+    Aω = SpectralSpreading.get_amplitudes(state.spectrum)   # Spectral densities at central frequencies   Aω: (nω,)
+    Δθ = AngularSpreading.get_bandwidths(state.spread)     # Angle bin widths                            Δθ: (nθ,)
+    Dθ = AngularSpreading.get_weights(state.spread)        # Directional spreading weights               Dθ: (nθ,)
 
     # Amplitudes Matrix  A_ij: (nω × nθ)
     return Aω * sqrt.(Dθ .* Δθ)'
@@ -166,7 +194,7 @@ function get_amplitudes(state::AiryState)
 end
 
 function get_random_phases(state::AiryState)
-    return 2π .* rand(get_seeded_rng(state.seed), nω, nθ) 
+    return 2π .* rand(get_seeded_rng(state.seed), state.nω, state.nθ) 
 end
 
 end # module

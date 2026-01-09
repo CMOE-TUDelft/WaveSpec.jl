@@ -71,6 +71,6 @@ function compute_tma_normalization(js::JONSWAP, h::Real)
         return (1.0 / js.fp) * S_js_unit * get_phi(f, h)
     end
 
-    total_area = gaussQuad1D_4(tma_shape, 1e-4, 5.0, 250)
+    total_area = IntegrateGaussQuad(tma_shape, order=2, a=1e-4, b=5.0, n=250)
     return 1.0 / total_area
 end

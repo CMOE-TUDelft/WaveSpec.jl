@@ -17,7 +17,7 @@ using WaveSpec.Integration
     # 3. Test: Integration of the density
     # The area under S(f) should be (Hs/4)^2 after normalization by Ag
     # m0 = ∫ S(f) df
-    m0_num = gaussQuad1D_4(f -> get_density(spec, f), get_fmin(spec), get_fmax(spec), 500)
+    m0_num = integrate(spec)
     Hs_calc = 4 * sqrt(m0_num)
     
     @info "Target Hs: $Hs, Calculated Hs: $Hs_calc"
@@ -26,7 +26,7 @@ using WaveSpec.Integration
     @test m0_num ≈ m0_exact rtol = 1e-2
 
     # 4. Test: Check that fmax is sufficient to integrate 99% of area under the curve (contains almost all tail)
-    m0_ext = gaussQuad1D_4(f -> get_density(spec, f), get_fmin(spec), get_fmax(spec, multiplier = 20.0), 1000)
+    m0_ext = integrate(spec, get_fmin(spec), get_fmax(spec, multiplier = 20.0), npoints=1000, order=4) 
     energy_ratio = m0_num / m0_ext
 
     @info "Default max frequency: $get_fmax(spec)"
