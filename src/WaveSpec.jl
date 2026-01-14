@@ -20,6 +20,9 @@ include("AngularSpreading/AngularSpreading.jl")
 # Include the Physics/Synthesis module 
 include("AiryWaves.jl")
 
+# Include signal generation and treatment tools module
+include("Utils/Signal.jl")
+
 
 """
     WaveSpec

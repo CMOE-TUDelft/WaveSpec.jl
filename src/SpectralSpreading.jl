@@ -381,19 +381,21 @@ end
 #   1. import Plots in script
 #   2. Call this function as plot(DiscreteSpectrum)
 
-@recipe function f(ds::DiscreteSpectrum)
+@recipe function f(spec::DiscreteSpectrum)
+    # Set up plot layout
     layout := (1, 2)
+    size   := (1000, 400)
 
     # 1. Continuous Model
-    f_range = range(get_fmin(Cspec), get_fmax(Cspec), length=300)
-    S_cont = [ContinuousSpectrums.get_density(Cspec, f) for f in f_range]
+    f_range = range(ContinuousSpectrums.get_fmin(spec.spectrum), ContinuousSpectrums.get_fmax(spec.spectrum), length=300)
+    S_cont = [ContinuousSpectrums.get_density(spec.spectrum, f) for f in f_range]
 
     # 2. Get Discrete Data
-    f_edges = SpectralSpreading.get_frequencies(Dspec)                           # Edge frequencies
-    S_edges = [ContinuousSpectrums.get_density(Cspec, f) for f in f_edges]       # Density at edge frequencies
-    f_centers = SpectralSpreading.get_central_frequencies(Dspec)                 # Central frequencies
-    Δf = diff(f_edges)                                                           # Widths of each bin
-    S_centers = [ContinuousSpectrums.get_density(Cspec, f) for f in f_centers]  # Density at central frequencies (S_j)
+    f_edges = get_frequencies(spec)                                                      # Edge frequencies
+    S_edges = [ContinuousSpectrums.get_density(spec.spectrum, f) for f in f_edges]       # Density at edge frequencies
+    f_centers = get_central_frequencies(spec)                                            # Central frequencies
+    Δf = get_bandwidths(spec)                                                            # Widths of each bin
+    S_centers = [ContinuousSpectrums.get_density(spec.spectrum, f) for f in f_centers]   # Density at central frequencies (S_j)
 
     collect_f = []
     collect_S = []
@@ -402,45 +404,86 @@ end
         push!(collect_S, 0, w, NaN)
     end
 
-    # 3. Energy per Bin Calculation
-    # We calculate E_j = ∫ S(f) df over the bin limits [f_low, f_high]  using the high-resolution CDF
-    E_bins = zeros(Dspec.nbands)
-    n_substeps = 100
-    for i in 1:Dspec.nbands
-        # 1. Define the bin boundaries
-        f_start = f_edges[i]
-        f_end   = f_edges[i+1]
-        
-        # 2. Create a micro-grid inside this specific bin
-        # We sample n_substeps points to capture the curve's shape
-        f_micro = range(f_start, f_end, length=n_substeps)
-        df = (f_end - f_start) / (n_substeps - 1)
-        
-        # 3. Integrate S(f) using the Trapezoidal Rule
-        bin_energy = 0.0
-        for j in 1:(n_substeps - 1)
-            S0 = ContinuousSpectrums.get_density(Cspec, f_micro[j])
-            S1 = ContinuousSpectrums.get_density(Cspec, f_micro[j+1])
-            
-            # Area of a small trapezoid: (average height) * width
-            bin_energy += 0.5 * (S0 + S1) * df
-        end
-        # Save energy
-        E_bins[i] = bin_energy
-    end
+    # 3. Energy per Bin 
+    E_bins = get_integrated_energies(spec)
     
-    # Left Plot
+    # --- LEFT SUBPLOT: Spectral Density ---
+
+    # 1a. Continuous spectrum
     @series begin
         subplot := 1
-        # ... (your existing density bar code) ...
+        label := "Continuous Spectrum"
+        linecolor := :black
+        lw := 2
+        f_range, S_cont
     end
-    
-    # Right Plot
+
+    # 1b. Spectral Bins (Bars)
     @series begin
-        subplot := 2
+        subplot    := 1
         seriestype := :bar
-        # ... (E_bins logic) ...
+        label      := "Spectral bins"
+        color      := :orange
+        alpha      := 0.3
+        bar_width  := Δf
+        f_centers, S_centers
     end
+
+    # 1c. Vertical lines for bin edges
+    @series begin
+        subplot    := 1
+        seriestype := :vline
+        label      := false
+        color      := :gray
+        alpha      := 0.3
+        f_edges
+    end
+
+    # 1d. Discrete Samples (Points + Stems)
+    @series begin
+        subplot   := 1
+        label     := false
+        linecolor := :red
+        lw        := 1
+        collect_f, collect_S
+    end
+
+    @series begin
+        subplot    := 1
+        seriestype := :scatter
+        label      := "Discrete Samples"
+        marker     := :circle
+        markersize := 3
+        markercolor := :red
+        f_edges, S_edges
+    end
+
+    # Axis Formatting for Subplot 1
+    @series begin
+        subplot := 1
+        label   := false
+        xguide  := "Frequency f [Hz]"
+        yguide  := "Spectral Density S(f) [m²s]"
+        title   := "Spectral Discretization"
+        # This is a dummy series to apply labels to the subplot
+        [], []
+    end
+
+    # --- SUBPLOT 2: Energy Distribution ---
+
+    @series begin
+        subplot    := 2
+        seriestype := :bar
+        label      := false
+        color      := :green
+        alpha      := 0.6
+        xguide     := "Bin Index"
+        yguide     := "Energy E [m²]"
+        title      := "Energy Distribution"
+        ylims      := (0, maximum(E_bins) * 1.2)
+        1:length(E_bins), E_bins
+    end
+
 end
 
 end # module

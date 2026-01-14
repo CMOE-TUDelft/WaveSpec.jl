@@ -95,6 +95,25 @@ function SpreadingModel(dist::TruncatedModel{D, T}, nθ::Integer, seed::Integer)
     return SpreadingModel{D, T}(dist, Int64(nθ), Int64(seed))
 end
 
+
+"""
+    SpreadingModel(θ)
+
+Default constructor for a long-crested sea (no angular spreading) in θ direction.
+Sets nθ = 2 (2 samples to define a single bin) and uses a narrow Uniform distribution centered at θ.
+"""
+function SpreadingModel(θ::Real; seed::Int64 = abs(rand(Int64)))
+    # Define a dummy narrow distribution with a single sample θ 
+    # We use a very small range so that the 'mean' is effectively 0
+    ϵ = 0.001
+    dist = Uniform(θ  - ϵ, θ + ϵ)
+    truncated_dist = TruncatedModel(dist, -π, π)
+    
+    # We force nθ = 1 for long-crested waves
+    return SpreadingModel(truncated_dist, 2, seed)
+end
+
+
 # --- Seed Management ---
 
 # Helper to handle the "Any" RNG type and seed initialization

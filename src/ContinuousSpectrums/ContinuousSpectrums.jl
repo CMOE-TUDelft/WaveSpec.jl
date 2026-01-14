@@ -2,6 +2,7 @@ module ContinuousSpectrums
 
 using ..Integration
 using ..Truncation
+using RecipesBase
 
 export AbstractSpectrum
 export JONSWAP, PiersonMoskowitz, TMA 
@@ -99,5 +100,31 @@ function get_cumulative_energy(s::AbstractSpectrum, f::Real; npoints::Int=100, m
 end
 
 # ---------------------------
+
+# --- Plots and Visualisation ---
+# Plot using light package RecipesBase:
+#   1. import Plots in script
+#   2. Call this function as plot(DiscreteSpectrum)
+
+@recipe function f(s::AbstractSpectrum; n_points=500)
+    # Plot Attributes
+    title  := "Continuous Spectrum PDF"
+    xlabel := "Frequency f [Hz]"
+    ylabel := "Spectral Density S(f) [m²s]"
+    grid   := false
+
+    # Get plot range 
+    f_range = range(get_fmin(s), get_fmax(s), length=n_points)
+
+    @series begin
+        label := false
+        seriestype := :path
+        fillrange := 0
+        fillalpha := 0.2
+        linecolor := :black
+        f_range, [get_density(s, f) for f in f_range]
+    end
+
+end
 
 end # module

@@ -128,7 +128,18 @@ with dimensional structure
                 T = (x, y, z, t, ω, θ)
 and then contract the last 2 dimensions (ω and θ) to sum the series components.
 """
-function sea_profiles(state::AiryState, x, y, z, t)
+function sea_profiles(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :u, :v, :w]) where {R<:Real}
+
+    # Normalize input to a Vector of Symbols
+    requested = vars isa Symbol ? [vars] : vars
+
+    # Error check
+    if isempty(requested)
+        throw(ArgumentError("No valid variables requested. Choose from :η, :u, :v, :w"))
+    end
+    
+    # Initialize an empty dictionary to store results
+    res = Dict{Symbol, Any}()
 
     # Amplitudes Matrix  A_ij: (nω × nθ)
     A_ij = get_amplitudes(state)
@@ -154,30 +165,48 @@ function sea_profiles(state::AiryState, x, y, z, t)
     # ψ = k*(x*cosθ + y*sinθ) - ωt + ϕ
     ψ = k .* ( X .* cos.(θ) .+ Y .* sin.(θ) ) .- (ω .* T) .+ ϕ
 
-    # Vertical Coefficients (Expanded to handle Z and k simultaneously)
-    # We apply the check per-frequency to handle different wave lengths correctly
-    kh = state.k .* state.h  # (nω, )
-    # Reshape k and kh for Dim 5 (ω)
-    k_reshaped  = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
-    kh_reshaped = reshape(kh, 1, 1, 1, 1, state.nω, 1)
-    h = state.h
-
-    # coeff_H/V will be (1 × 1 × nz × 1 × nω × 1)
-    coeff_H = ifelse.(kh_reshaped .< 20.0, 
-                cosh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
-                exp.(k_reshaped .* Z))
+    # Calculations (Independent 'if' blocks so all requested vars are computed) -> Compute profiles by summing over all components
+    if :η in requested
+        res[:η] = dropdims(sum( A .* cos.(ψ), dims=(5,6)), dims=(5,6))
+    end
     
-    coeff_V = ifelse.(kh_reshaped .< 20.0, 
-                sinh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
-                exp.(k_reshaped .* Z))
+    if :u in requested || :v in requested || :w in requested
+        # Vertical Coefficients (Expanded to handle Z and k simultaneously)
+        kh = state.k .* state.h  # (nω, )
+        # Reshape k and kh for Dim 5 (ω)
+        k_reshaped  = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
+        kh_reshaped = reshape(kh, 1, 1, 1, 1, state.nω, 1)
+        h = state.h 
+    end
 
-    # Compute profiles by summing over all components
-    η = dropdims(sum( A .* cos.(ψ), dims=(5,6)), dims=(5,6))
-    u = dropdims(sum( A .* (ω .* coeff_H .* cos.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
-    v = dropdims(sum( A .* (ω .* coeff_H .* sin.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
-    w = dropdims(sum( A .* (ω .* coeff_V) .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
-    
-    return (η=η, u=u, v=v, w=w)
+    if :u in requested || :v in requested 
+        # Precompute coefficients only if  needed: coeff_H will be (1 × 1 × nz × 1 × nω × 1)
+        coeff_H = ifelse.(kh_reshaped .< 20.0, 
+                    cosh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
+                    exp.(k_reshaped .* Z))
+
+        if :u in requested
+            # Compute profile by summing over all components
+            res[:u] = dropdims(sum( A .* (ω .* coeff_H .* cos.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
+        end
+
+        if :v in requested
+            # Compute profile by summing over all components
+            res[:v] = dropdims(sum( A .* (ω .* coeff_H .* sin.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
+        end
+    end
+
+    if :w in requested
+        # Precompute coefficients only if needed: coeff_V will be (1 × 1 × nz × 1 × nω × 1)
+        # We apply the check per-frequency to handle different wave lengths correctly
+        coeff_V = ifelse.(kh_reshaped .< 20.0, 
+            sinh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
+            exp.(k_reshaped .* Z))
+        # Compute profile by summing over all components
+        res[:w] = dropdims(sum( A .* (ω .* coeff_V) .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
+    end
+
+    return (; res...)
 end
 
 
