@@ -41,6 +41,11 @@ function AiryState(spec::DiscreteSpectrum, spread::SpreadingModel, h::Real)
 end
 
 
+function AiryState(spec::DiscreteSpectrum, h::Real; θ::Real = 0.0)
+    spread = SpreadingModel(θ)
+    return AiryState(spec, spread, h)
+end
+
 function AiryState(spectrum_model::Symbol, Hs::T, Tp::T,
                    sampling_model::AbstractSampling, fmin, fmax, nf,
                    angular_spreading::Symbol, μ::T, σ::T, θmin::T, θmax::T, nθ::Int,

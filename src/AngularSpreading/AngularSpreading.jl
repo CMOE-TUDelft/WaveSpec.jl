@@ -113,6 +113,10 @@ function SpreadingModel(θ::Real; seed::Int64 = abs(rand(Int64)))
     return SpreadingModel(truncated_dist, 2, seed)
 end
 
+function SpreadingModel()
+    return SpreadingModel(0.0)
+end
+
 
 # --- Seed Management ---
 

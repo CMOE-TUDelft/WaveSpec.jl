@@ -4,8 +4,8 @@ using Test
 using WaveSpec.ContinuousSpectrums
 using WaveSpec.FrequencySampling
 using WaveSpec.SpectralSpreading
+using WaveSpec.Signal
 using Statistics
-using FFTW
 
 
 @testset "Discrete Energy Conservation (Amplitude Test)" begin
@@ -102,6 +102,10 @@ end
     Hs_target = 3.0
     Tp_target = 10.0
     spec = JONSWAP(Hs_target, Tp_target)
+
+    # Continuous Spectrum 
+    f_cont = range(get_fmin(spec), get_fmax(spec), length=1000)
+    S_cont = [ContinuousSpectrums.get_density(spec, f) for f in f_cont]
     
     # Test with Equal Energy sampling to prove the strategy works
     ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), 750; 
@@ -109,46 +113,46 @@ end
     
     # --- 2. Signal Synthesis ---
     # Sampling parameters
-    N = 2^14                    # Even number (power of 2) of samplings in time (choose high number for long time window)
-    fs = 2.0 * get_fmax(spec)   # Nyquist frequency (the window sampling frequency fs must be MORE than double the signal maximum frequency -> AVOID ALIASING)
-    dt = 1.0 / fs
-    t = collect(0:dt:(N-1)*dt)
-    
-    amplitudes = SpectralSpreading.get_amplitudes(ds)
-    freqs = SpectralSpreading.get_central_frequencies(ds)
-    phases = 2π .* rand(ds.nf)
-    
-    # η(t) = Σ A_i * cos(2π f_i t + ϕ_i)
-    eta = zeros(length(t))
-    for (A, f, ϕ) in zip(amplitudes, freqs, phases)
-        eta .+= A .* cos.(2π .* f .* t .+ ϕ)
-    end
+    N = 2^14                        # Even number (power of 2) of samplings in time (choose high number for long time window)
+    h = 2.0                         # water depth
+    fs = 2.0 *get_fmax(ds.spectrum) # Nyquist frequency (avoid aliasing)
+    t, η_signal = generate_signal(ds, h, N, fs=fs)
     
     # --- 3. Statistical Validation ---
-    Hs_sim = 4.0 * std(eta)
+    Hs_sim = 4.0 * std(η_signal)
     @test Hs_sim ≈ Hs_target rtol=0.02  # Allow 2% error for stochastic sampling
     
     # --- 4. Spectral Validation (Reconstruction) ---
-    # Perform the signal's Fast Fourier Transform
-    fft_res = fft(eta)
-    # Power Spectral Density (PSD)
-    # Factor 2.0 because we use only positive frequencies
-    psd_sim = (2.0 * dt / N) .* abs.(fft_res[1:Int(N/2)]) .^ 2
-    f_axis = (0:Int(N/2)-1) ./ last(t)
+    f_axis, fAmp, psd = get_single_sided_spectrum(η_signal, fs)
     
-    # Check the peak frequency
-    f_peak_sim = f_axis[argmax(psd_sim)]
-    @test f_peak_sim ≈ (1/Tp_target) atol=0.01
+    # Test 4.1: Check the peak frequency
+    f_peak_sim = f_axis[argmax(psd)]
+    f_target = 1.0 / Tp_target
+    @test f_peak_sim ≈ f_target atol=0.01
     
-    # Check if the recovered peak density matches the target density
-    # We compare the peak of the simulated PSD to the peak of the JONSWAP model
-    S_max_target = ContinuousSpectrums.get_density(spec, 1/Tp_target)
-    S_max_sim = maximum(psd_sim)
+    # Test 4.2: The integral of the signal PSD should match the target variance
+    @test sum(psd .* fs/N) ≈ Hs_target^2 / 16 rtol=1e-2
+
+    # Test 4.3: Compare Integrated Energy in Bands.
+    # For example, check if the energy between $0.8 f_p$ and $1.2 f_p$ is the same in both the model and the simulation:
+
+    # Energy in the peak region
+    mask_sim = (f_axis .> 0.08) .& (f_axis .< 0.12)
+    energy_sim = sum(psd[mask_sim]) * (f_axis[2] - f_axis[1])
+
+    mask_target = (f_cont .> 0.08) .& (f_cont .< 0.12)
+    energy_target = sum(S_cont[mask_target]) * (f_cont[2] - f_cont[1])
+
+    @test energy_sim ≈ energy_target rtol=0.05
+
+    # Test 4.4: Check if the recovered peak density matches the target density
+    S_max_target = ContinuousSpectrums.get_density(spec, f_target)
+    # Smooth the signal spectrum by averaging over time windows
+    f_avg, avg_psd = averaged_psd(f_axis, psd)
+    S_max_sim = maximum(avg_psd)
     
-    @info "Reconstruction Results" Hs_sim f_peak_sim S_max_sim S_max_target
+    @info "Reconstruction Results" H_target Hs_sim f_peak_target f_peak_sim S_max_target S_max_sim
     
-    # Note: PSD from FFT can be noisy. In a real test, 
-    # we might use Welch's method (averaging) for a smoother comparison.
     @test S_max_sim ≈ S_max_target rtol=0.15 
 end
 

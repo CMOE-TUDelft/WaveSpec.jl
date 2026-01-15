@@ -12,6 +12,7 @@ using ..ContinuousSpectrums
 using ..FrequencySampling
 using ..SpectralSpreading
 using ..AiryWaves
+import Statistics: mean
 
 export generate_signal, get_single_sided_spectrum, averaged_psd
 
