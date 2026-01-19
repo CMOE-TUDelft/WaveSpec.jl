@@ -3,6 +3,8 @@ module AngularSpreading
 using Distributions
 using Random
 using RecipesBase
+using Statistics
+using SpecialFunctions
 using ..Truncation
 
 include("CosinePower.jl")
@@ -80,14 +82,8 @@ function SpreadingModel(model_type::Symbol, μ::T, σ::T, a::T, b::T, nθ::Int) 
         error("Model type :$model_type not recognized.")
     end
 
-    if model_type == :uniform
-        # Uniform distribution does not need truncation
-        truncated_dist = base_dist
-    else
-        # Apply truncation for other distributions
-        truncated_dist = TruncatedModel(base_dist, a, b)
-    end
-    
+    # Apply truncation
+    truncated_dist = TruncatedModel(base_dist, a, b)
     return SpreadingModel(truncated_dist, nθ, abs(rand(Int64)))
 end
 

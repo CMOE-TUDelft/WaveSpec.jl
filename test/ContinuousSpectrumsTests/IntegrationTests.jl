@@ -3,8 +3,6 @@ module IntegrationTests
 using Test
 using WaveSpec.ContinuousSpectrums
 
-export prepare_test_models
-
 """
     prepare_test_models()
 Prepares a list of implemented continuous spectral models, with tuples: (model_name::String, model_instance::AbstractSpectrum)

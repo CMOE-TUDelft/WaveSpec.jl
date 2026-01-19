@@ -13,8 +13,8 @@ The Donelan-Banner spreading distribution over (-∞, ∞), where:
 export DonelanBannerDistribution
 
 struct DonelanBannerDistribution{T<:Real} <: ContinuousUnivariateDistribution
-    μ::T               # Mean direction
-    β::T               # Spreading parameter
+    μ::T    # Mean direction
+    β::T    # Spreading parameter
 end
 
 function DonelanBannerDistribution(μ::Real, β::Real)
@@ -56,3 +56,6 @@ end
 
 # convenience rand when rng::AbstractRNG random generator type is not passed as an argument
 Distributions.rand(d::DonelanBannerDistribution) = rand(Random.GLOBAL_RNG, d)
+
+Statistics.mean(d::DonelanBannerDistribution) = d.μ
+Statistics.var(d::DonelanBannerDistribution) = 1.0 - (π / d.β) / sinh(π / d.β)  # Calculate the first trigonometric moment R1

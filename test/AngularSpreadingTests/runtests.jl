@@ -2,10 +2,14 @@ module AngularSpreadingTests
 
 using Test
 
-@testset "Cosine Power Model" begin include("CosinePowerTests.jl") end
+@testset "Continuous Angular Spreading Specific Tests" begin 
+    include("CosinePowerTests.jl") 
+    include("VonMisesTests.jl")
+end
 
-@testset "Von Mises Model" begin include("VonMisesTests.jl") end
-
-@testset "Normalization" begin include("NormalizationTests.jl") end
+@testset "Discrete Angular Spreading Models Tests" begin 
+    include("TruncationTests.jl")
+    include("DiscretisationTests.jl") 
+end
 
 end # module

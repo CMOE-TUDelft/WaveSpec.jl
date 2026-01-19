@@ -76,3 +76,6 @@ end
 
 # convenience rand when rng::AbstractRNG random generator type is not passed as an argument
 Distributions.rand(d::CosinePowerDistribution) = rand(Random.GLOBAL_RNG, d)
+
+Statistics.mean(d::CosinePowerDistribution) = d.μ
+Statistics.var(d::CosinePowerDistribution) = 1.0 - gamma(d.n + 1) / (2^d.n * (gamma(d.n/2 + 1)^2))  # Calculate the first trigonometric moment R1

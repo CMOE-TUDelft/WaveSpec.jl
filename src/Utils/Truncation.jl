@@ -15,6 +15,9 @@ The resulting TD is a univariate distribution that is truncated to a specified i
 
 using Distributions
 using Random
+using Statistics
+using ..Integration
+using RecipesBase
 
 export TruncatedModel
 
@@ -30,11 +33,11 @@ end
 
 # Inner constructor (validates and precomputes constants)
 function TruncatedModel(dist::UnivariateDistribution, a::Real, b::Real)
-    low  = cdf(dist, a)
-    high = cdf(dist, b)
+    low  = cdf(dist, Float64(a))
+    high = cdf(dist, Float64(b))
     Z = high - low
     Z <= 0 && throw(ArgumentError("Zero probability mass in range [a, b]"))
-    return TruncatedModel(dist, Float64(a), Float64(b), Float64(Z), Float64(low), Float64(high))
+    return TruncatedModel(dist, Float64(a), Float64(b), Z, low, high)
 end
 
 ### Overload methods for truncated distribution: PDF, CDF and rand
@@ -62,13 +65,12 @@ end
 function Distributions.rand(rng::AbstractRNG, tm::TruncatedModel)
 
     # Case A: If the distribution supports quantile (Inverse Transform)
-    if hasmethod(quantile, (typeof(tm.dist), Float64))
+    try
         # Draw uniform u in [0, 1], scale to [CDF(a), CDF(b)]
         u = rand(rng) * tm.Z + tm.cdf_a
         return quantile(tm.dist, u)
-
-    # Case B: Fallback to Rejection Sampling
-    else
+    catch e
+        # Case B: Fallback to Rejection Sampling
         while true
             x = rand(rng, tm.dist)
             if tm.a <= x <= tm.b
@@ -90,5 +92,44 @@ end
 
 # convenience rand when rng::AbstractRNG random generator type is not passed as an argument
 Distributions.rand(tm::TruncatedModel) = rand(Random.GLOBAL_RNG, tm)
+
+Statistics.mean(tm::TruncatedModel) = begin
+    # Numerical integration for mean
+    f(x) = x * pdf(tm, x)
+    return IntegrateGaussQuad(f; a=tm.a, b=tm.b, order=4, n=100)
+end
+
+Statistics.var(tm::TruncatedModel) = begin
+    μ = mean(tm)
+    f(x) = (x - μ)^2 * pdf(tm, x)
+    return IntegrateGaussQuad(f; a=tm.a, b=tm.b, order=4, n=100) - μ^2
+end
+
+
+# --- Plots and Visualisation ---
+# Plot using light package RecipesBase:
+#   1. import Plots in script
+#   2. Call this function as plot(DiscreteSpectrum)
+
+@recipe function f(s::TruncatedModel; n_points=500)
+    # Plot Attributes
+    title  := "Continuous Truncated Angular PDF"
+    xlabel := "Angle θ (º)"
+    ylabel := "Density S(θ) [m²s]"
+    grid   := false
+
+    # Get plot range 
+    θ_range = range(s.a, s.b, length=n_points)
+
+    @series begin
+        label := false
+        seriestype := :path
+        fillrange := 0
+        fillalpha := 0.2
+        linecolor := :black
+        θ_range, [pdf(s, θ) for θ in θ_range]
+    end
+
+end
 
 end # module Truncation

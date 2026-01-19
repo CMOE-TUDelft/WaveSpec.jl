@@ -48,3 +48,7 @@ end
 
 # convenience rand when rng::AbstractRNG random generator type is not passed as an argument
 Distributions.rand(d::VonMisesDistribution) = rand(Random.GLOBAL_RNG, d)
+
+
+Statistics.mean(d::VonMisesDistribution) = d.μ
+Statistics.var(d::VonMisesDistribution) = 1.0 - (besselj(1, d.κ) / besselj(0, d.κ))  # Calculate the first trigonometric moment R1

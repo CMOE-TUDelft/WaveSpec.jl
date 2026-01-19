@@ -2,8 +2,8 @@ module WaveSpec
 
 # Include the foundational utilities first
 include("Utils/PhysicalConstants.jl")
-include("Utils/Truncation.jl")
 include("Utils/Integration.jl")
+include("Utils/Truncation.jl")
 
 # Include Continuous Spectrums module
 include("ContinuousSpectrums/ContinuousSpectrums.jl")
