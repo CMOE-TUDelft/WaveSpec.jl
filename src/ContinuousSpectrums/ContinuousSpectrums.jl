@@ -121,7 +121,7 @@ end
 # --- Plots and Visualisation ---
 # Plot using light package RecipesBase:
 #   1. import Plots in script
-#   2. Call this function as plot(DiscreteSpectrum)
+#   2. Call this function as plot(DiscreteSpectralSpreading)
 
 @recipe function f(s::AbstractSpectrum; n_points=500)
     # Plot Attributes

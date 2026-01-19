@@ -9,7 +9,7 @@ Module providing tools for spectral reconstruction through signal theory methodo
 using FFTW
 using ..AngularSpreading
 using ..ContinuousSpectrums
-using ..FrequencySampling
+using ..SpectralSampling
 using ..SpectralSpreading
 using ..AiryWaves
 import Statistics: mean
@@ -34,7 +34,7 @@ function generate_signal(state::AiryState, N::Int; fs::Real = 2.0 *get_fmax(stat
     t = collect(0:dt:(N-1)*dt)
 
     # Generate signal
-    profiles = sea_profiles(state, [P[1]], [P[2]], [P[3]], t, vars=vars)
+    profiles = generate_sea(state, [P[1]], [P[2]], [P[3]], t, vars=vars)
 
     # Extract the signal
     target_var = vars isa Symbol ? vars : vars[1]
@@ -42,7 +42,7 @@ function generate_signal(state::AiryState, N::Int; fs::Real = 2.0 *get_fmax(stat
 end
 
 
-function generate_signal(discspectrum::DiscreteSpectrum, h::Real, N::Int; fs::Real = 2.0 *get_fmax(discspectrum.spectrum), P::AbstractVector{<:Real} = [0.0, 0.0, 0.0], vars = [:η])
+function generate_signal(discspectrum::DiscreteSpectralSpreading, h::Real, N::Int; fs::Real = 2.0 *get_fmax(discspectrum.spectrum), P::AbstractVector{<:Real} = [0.0, 0.0, 0.0], vars = [:η])
     """
     Generates signal (time serie) corresponding at airy state with discrete spectrum "discspectrum" and wave profile specified by "vars" at point "P" and constituted of "N" samples with frequency "fs".
 
@@ -56,7 +56,7 @@ function generate_signal(discspectrum::DiscreteSpectrum, h::Real, N::Int; fs::Re
     """
     
     # Generate null angular spreading structure
-    AngSprea = SpreadingModel(0.0)
+    AngSprea = DiscreteAngularSpreading(0.0)
 
     # Generate Airy sea state
     airysea = AiryState(discspectrum, AngSprea, h)

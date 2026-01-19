@@ -1,12 +1,12 @@
 module AiryWaves
 
 using Random
-using ..FrequencySampling
+using ..SpectralSampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
 
-export AiryState, sea_profiles, get_amplitude, get_random_phases
+export AiryState, generate_sea, get_amplitude, get_random_phases
 
 """
     AiryState
@@ -14,8 +14,8 @@ Holds the discrete frequency-direction components of the sea state.
 This is the "data" layer.
 """
 struct AiryState
-    spectrum::DiscreteSpectrum  # Discrete spectrum metadata
-    spread::SpreadingModel      # Angular spreading metadata
+    spectrum::DiscreteSpectralSpreading  # Discrete spectrum metadata
+    spread::DiscreteAngularSpreading      # Angular spreading metadata
     nω::Int64                   # Number of frequency bins
     nθ::Int64                   # Number of angle bins
     ω::Vector{Float64}          # Radian frequencies [rad/s]
@@ -25,7 +25,7 @@ struct AiryState
     seed::Int64                 # Random seed for reproducibility
 end
 
-function AiryState(spec::DiscreteSpectrum, spread::SpreadingModel, h::Real)
+function AiryState(spec::DiscreteSpectralSpreading, spread::DiscreteAngularSpreading, h::Real)
     # 1. Radian frequencies from the discrete frequency model
     nω = spec.nbands
     ω_vec = 2π .* SpectralSpreading.get_central_frequencies(spec)
@@ -41,8 +41,8 @@ function AiryState(spec::DiscreteSpectrum, spread::SpreadingModel, h::Real)
 end
 
 
-function AiryState(spec::DiscreteSpectrum, h::Real; θ::Real = 0.0)
-    spread = SpreadingModel(θ)
+function AiryState(spec::DiscreteSpectralSpreading, h::Real; θ::Real = 0.0)
+    spread = DiscreteAngularSpreading(θ)
     return AiryState(spec, spread, h)
 end
 
@@ -59,10 +59,10 @@ function AiryState(spectrum_model::Symbol, Hs::T, Tp::T,
     end
 
     # 2. Sample spectrum to create discrete spectrum
-    spec = DiscreteSpectrum(continuous_spectrum, sampling_model, fmin, fmax, nf)
+    spec = DiscreteSpectralSpreading(continuous_spectrum, sampling_model, fmin, fmax, nf)
 
     # 3. Create the angular spreading model
-    spread = SpreadingModel(angular_spreading, μ, σ, θmin, θmax, nθ)
+    spread = DiscreteAngularSpreading(angular_spreading, μ, σ, θmin, θmax, nθ)
 
     # 4. Create the AiryState
     return AiryState(spec, spread, h)
@@ -124,7 +124,7 @@ These elements are combined to compute the sea surface elevation and velocity co
 """
 
 """
-    sea_profiles(state::AiryState, x, y, z, t)
+    generate_sea(state::AiryState, x, y, z, t)
 
 The main evaluation engine. Computes η, u, v, w for a 4D grids (x, y, z, t).
 Everything is computed on-the-fly to minimize memory footprint.
@@ -133,7 +133,7 @@ with dimensional structure
                 T = (x, y, z, t, ω, θ)
 and then contract the last 2 dimensions (ω and θ) to sum the series components.
 """
-function sea_profiles(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :u, :v, :w]) where {R<:Real}
+function generate_sea(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :u, :v, :w]) where {R<:Real}
 
     # Normalize input to a Vector of Symbols
     requested = vars isa Symbol ? [vars] : vars

@@ -1,22 +1,22 @@
 module SpectralSpreading
 
-using ..FrequencySampling
+using ..SpectralSampling
 using ..ContinuousSpectrums
 using ..Integration
 using RecipesBase
 
-export DiscreteSpectrum
+export DiscreteSpectralSpreading
 export get_frequency, get_frequencies,
        get_density, get_densities,
        get_amplitude, get_amplitudes 
 export get_moments, get_Hs, get_energies
 
 """
-    DiscreteSpectrum
+    DiscreteSpectralSpreading
 The discrete realization of a frequency spectrum. 
 Represents the energy distribution across a finite set of frequency bins.
 """
-struct DiscreteSpectrum
+struct DiscreteSpectralSpreading
     spectrum::AbstractSpectrum  # The underlying continuous spectrum (JONSWAP, etc.)
     sampling::AbstractSampling  # The sampling strategy used
     domain::SamplingDomain      # Domain over which the spectral sampling is done (Frequency/Energy)
@@ -30,13 +30,13 @@ end
 # --- CONSTRUCTOR ---
 
 """
-    DiscreteSpectrum(shape, strategy, fmin, fmax, nf)
+    DiscreteSpectralSpreading(shape, strategy, fmin, fmax, nf)
 
 Continuous abstract spectrum discretised according to the selected abstract sampling strategy, between fmin and fmax with nf bins.
 """
-function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin::Real, fmax::Real, nf::Int; domain::SamplingDomain = Frequency, mess::Bool=true)
+function DiscreteSpectralSpreading(shape::AbstractSpectrum, strat::AbstractSampling, fmin::Real, fmax::Real, nf::Int; domain::SamplingDomain = Frequency, mess::Bool=true)
     # 1. Generate the nf edges
-    freqs = FrequencySampling.generate_grid(strat, domain, shape, fmin, fmax, nf)
+    freqs = SpectralSampling.generate_grid(strat, domain, shape, fmin, fmax, nf)
     
     # 2. Compute bandwidths and centers for the nf-1 bins
     # Bandwidths: df = f[i+1] - f[i]
@@ -71,7 +71,7 @@ function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin
         println("----------------------------")
     end
 
-    return DiscreteSpectrum(shape, strat, domain, fmin, fmax, nf, nf-1, norm_factor)
+    return DiscreteSpectralSpreading(shape, strat, domain, fmin, fmax, nf, nf-1, norm_factor)
 end
 
 
@@ -80,30 +80,30 @@ end
 # --- Frequency sampling getters ---
 
 """
-    get_frequencies(spec::DiscreteSpectrum)
+    get_frequencies(spec::DiscreteSpectralSpreading)
 
 Returns the discrete frequency bins and their widths.
 """
-function get_frequencies(spec::DiscreteSpectrum)
-    return FrequencySampling.generate_grid(spec.sampling, spec.domain, spec.spectrum, spec.fmin, spec.fmax, spec.nf)
+function get_frequencies(spec::DiscreteSpectralSpreading)
+    return SpectralSampling.generate_grid(spec.sampling, spec.domain, spec.spectrum, spec.fmin, spec.fmax, spec.nf)
 end
 
-function get_frequencies(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     all_freqs = get_frequencies(spec)
     return all_freqs[r]
 end
 
-function get_frequencies(spec::DiscreteSpectrum, f_range::AbstractRange{<:Real})
+function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange{<:Real})
     return get_frequencies(spec, get_spectral_index(spec, f_range))
 end
 
-function get_frequency(spec::DiscreteSpectrum, f_target::Real)
+function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
     # Early return for empty or invalid frequency
     (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
     return get_frequency(spec, get_spectral_index(spec, f_target))
 end
 
-function get_frequency(spec::DiscreteSpectrum, idx::Int)
+function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     all_freqs = get_frequencies(spec)
     return (idx < 1 || idx > spec.nf) ? Float64[] : all_freqs[idx]
 end
@@ -113,21 +113,21 @@ end
 # --- Central frequency getters ---
 
 """
-    get_central_frequencies(spec::DiscreteSpectrum)
+    get_central_frequencies(spec::DiscreteSpectralSpreading)
 
 Returns the central frequencies of each discrete bin.
 """
-function get_central_frequencies(spec::DiscreteSpectrum)
+function get_central_frequencies(spec::DiscreteSpectralSpreading)
     freqs = get_frequencies(spec)
     return (freqs[1:end-1] + freqs[2:end]) ./ 2.0
 end
 
-function get_central_frequencies(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_central_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     central_freqs = get_central_frequencies(spec)
     return central_freqs[r]
 end
 
-function get_central_frequency(spec::DiscreteSpectrum, idx::Int)
+function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     central_freqs = get_central_frequencies(spec)
     return (idx < 1 || idx > spec.nbands) ? Float64[] : central_freqs[idx]
 end
@@ -137,11 +137,11 @@ end
 
 # --- Spectral index getters ---
 """
-    get_spectral_index(spec::DiscreteSpectrum, f_target::Real)
+    get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
 
 Returns the index (1 to nf-1) of the bin containing the frequency `f_target`.
 """
-function get_spectral_index(spec::DiscreteSpectrum, f_target::Real)
+function get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
     # Early return for empty or invalid frequency
     (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
 
@@ -160,12 +160,12 @@ end
 
 
 """
-    get_spectral_index(spec::DiscreteSpectrum, f_range::AbstractRange{<:Real})
+    get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRange{<:Real})
 
 Returns a UnitRange of bin indexes that cover the provided frequency range.
 Useful for extracting a "slice" of the spectrum (e.g., around the peak).
 """
-function get_spectral_index(spec::DiscreteSpectrum, f_range::AbstractRange{<:Real})
+function get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRange{<:Real})
     f_start = first(f_range)
     f_end   = last(f_range)
     
@@ -191,11 +191,11 @@ end
 # --- Bandwidth getters ---
 
 """
-    get_bandwidths(spec::DiscreteSpectrum)
+    get_bandwidths(spec::DiscreteSpectralSpreading)
 
 Returns the bandwidths of each discrete bin.
 """
-function get_bandwidths(spec::DiscreteSpectrum) 
+function get_bandwidths(spec::DiscreteSpectralSpreading) 
     return diff(get_frequencies(spec))
 end
 
@@ -203,12 +203,12 @@ function get_bandwidths(freqs::Vector{Float64})
     return diff(freqs)
 end
 
-function get_bandwidths(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_bandwidths(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     dfs = get_bandwidths(spec)
     return dfs[r]
 end
 
-function get_bandwidth(spec::DiscreteSpectrum, idx::Int)
+function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
     dfs = get_bandwidths(spec)
     return (idx < 1 || idx > spec.nbands) ? Float64[] : dfs[idx]
 end
@@ -218,11 +218,11 @@ end
 # --- SPECTRAL DENSITY EVALUATION FUNCTIONS ---
 
 """ 
-    get_density(spec::DiscreteSpectrum, idx::Int)
+    get_density(spec::DiscreteSpectralSpreading, idx::Int)
 
 Returns corrected spectral density S(fᵢ) for the specified bin index.
 """
-function get_density(spec::DiscreteSpectrum, idx::Int)
+function get_density(spec::DiscreteSpectralSpreading, idx::Int)
     # Early return for empty or invalid index
     (idx < 1 || idx > spec.nbands) && return Float64[]
     # Get the central frequency for the bin
@@ -232,20 +232,20 @@ function get_density(spec::DiscreteSpectrum, idx::Int)
 end
 
 """
-    get_densities(spec::DiscreteSpectrum)
+    get_densities(spec::DiscreteSpectralSpreading)
 
 Returns corrected spectral densities S(fᵢ) for all bins.
 """
-function get_densities(spec::DiscreteSpectrum)
+function get_densities(spec::DiscreteSpectralSpreading)
     return [ContinuousSpectrums.get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec)]
 end
 
 """
-    get_densities(spec::DiscreteSpectrum, idx0::Int=1, idx1::Int=length(spec.fᵢ))
+    get_densities(spec::DiscreteSpectralSpreading, idx0::Int=1, idx1::Int=length(spec.fᵢ))
 
 Returns corrected spectral densities S(fᵢ) for the specified bin range.
 """
-function get_densities(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_densities(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     # Safety: Clamp indexes to valid 1-based range
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
@@ -262,11 +262,11 @@ end
 # --- SPECTRAL ENERGY EVALUATION FUNCTIONS ---
 
 """ 
-    get_energy(spec::DiscreteSpectrum, idx::Int)
+    get_energy(spec::DiscreteSpectralSpreading, idx::Int)
 
 Returns corrected wave energy E(fᵢ) for the specified bin index.
 """
-function get_energy(spec::DiscreteSpectrum, idx::Int)
+function get_energy(spec::DiscreteSpectralSpreading, idx::Int)
     # Early return for empty or invalid index
     (idx < 1 || idx > spec.nbands) && return Float64[]
 
@@ -275,16 +275,16 @@ function get_energy(spec::DiscreteSpectrum, idx::Int)
 end
 
 
-function get_energies(spec::DiscreteSpectrum)
+function get_energies(spec::DiscreteSpectralSpreading)
     return get_densities(spec) .* get_bandwidths(spec)
 end
 
 """
-    get_energies(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+    get_energies(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
 
 Returns corrected wave energies E(fᵢ) for the specified bins range.
 """
-function get_energies(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_energies(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     # Safety: Clamp indexes
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
@@ -300,11 +300,11 @@ end
 # --- SPECTRAL AMPLITUDE EVALUATION FUNCTIONS ---
 
 """ 
-    get_amplitude(spec::DiscreteSpectrum, idx::Int)
+    get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
 
 Returns corrected wave amplitude A(fᵢ) for the specified bin index.
 """
-function get_amplitude(spec::DiscreteSpectrum, idx::Int)
+function get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
     # Early return for empty or invalid index
     (idx < 1 || idx > spec.nbands) && return Float64[]
 
@@ -313,16 +313,16 @@ function get_amplitude(spec::DiscreteSpectrum, idx::Int)
 end
 
 
-function get_amplitudes(spec::DiscreteSpectrum)
+function get_amplitudes(spec::DiscreteSpectralSpreading)
     return sqrt.(2.0 .* get_energies(spec))
 end
 
 """
-    get_amplitudes(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+    get_amplitudes(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
 
 Returns corrected wave amplitudes A(fᵢ) for the specified bin range.
 """
-function get_amplitudes(spec::DiscreteSpectrum, r::AbstractUnitRange{Int})
+function get_amplitudes(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int})
     # Safety: Clamp indexes
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
@@ -336,33 +336,33 @@ end
 # -----------------------------------------------
 
 """
-    get_moment(spec::DiscreteSpectrum, n::Int)
+    get_moment(spec::DiscreteSpectralSpreading, n::Int)
 
 Calculates the n-th corrected discrete spectral moment: mₙ = Σ (fⁿ * S * df)
 """
-function get_moment(spec::DiscreteSpectrum, n::Int)
+function get_moment(spec::DiscreteSpectralSpreading, n::Int)
     vals = [ (f^n) * S for (f, S) in zip(get_central_frequencies(spec), get_densities(spec)) ]
     return sum(vals .* get_bandwidths(spec))
 end
 
 
 """
-    get_Hs(spec::DiscreteSpectrum)
+    get_Hs(spec::DiscreteSpectralSpreading)
 
 Returns the corrected significant wave height Hs = 4√m₀ computed from the discrete bins.
 """
-function get_Hs(spec::DiscreteSpectrum)
+function get_Hs(spec::DiscreteSpectralSpreading)
     m₀ = get_moment(spec, 0)
     return 4.0 * sqrt(m₀)
 end
 
 """ 
-    get_integrated_energies(spec::DiscreteSpectrum; nfine = 200)
+    get_integrated_energies(spec::DiscreteSpectralSpreading; nfine = 200)
 
 Returns the energies per bin by integrating the continuous spectrum inside
 each bin (-> continuous spectrum-wise energy inside discrete-wise bins).
 """
-function get_integrated_energies(spec::DiscreteSpectrum; nfine = 200)
+function get_integrated_energies(spec::DiscreteSpectralSpreading; nfine = 200)
     # Allocate energies array
     e_bins = zeros(spec.nbands)
     # get edge frequencies
@@ -379,9 +379,9 @@ end
 # --- Plots and Visualisation ---
 # Plot using light package RecipesBase:
 #   1. import Plots in script
-#   2. Call this function as plot(DiscreteSpectrum)
+#   2. Call this function as plot(DiscreteSpectralSpreading)
 
-@recipe function f(spec::DiscreteSpectrum)
+@recipe function f(spec::DiscreteSpectralSpreading)
     # Set up plot layout
     layout := (1, 2)
     size   := (1000, 400)

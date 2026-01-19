@@ -2,7 +2,7 @@ module DiscretisationTests
 
 using Test
 using WaveSpec.ContinuousSpectrums
-using WaveSpec.FrequencySampling
+using WaveSpec.SpectralSampling
 using WaveSpec.SpectralSpreading
 using WaveSpec.Signal
 using Statistics
@@ -45,7 +45,7 @@ function test_energy_conservation_amplitude(spec::AbstractSpectrum)
 
     for strat in strategies, dom in domains
         # Discretize
-        ds = DiscreteSpectrum(spec, strat, get_fmin(spec), get_fmax(spec), 200; domain=dom, mess=false)
+        ds = DiscreteSpectralSpreading(spec, strat, get_fmin(spec), get_fmax(spec), 200; domain=dom, mess=false)
         
         # 1. Extract amplitudes
         amplitudes = get_amplitudes(ds)
@@ -58,12 +58,12 @@ function test_energy_conservation_amplitude(spec::AbstractSpectrum)
         m0_theoretical = (Hs_target / 4.0)^2
         
         # Check if they match within a tight tolerance
-        @info "1srt order moment" Theoretical=m0_theoretical Discrete=m0_discrete 
+        #@info "1srt order moment" Theoretical=m0_theoretical Discrete=m0_discrete 
         @test m0_discrete ≈ m0_theoretical rtol=1e-3
         
         # 4. Cross-check Hs
         Hs_discrete = 4.0 * sqrt(m0_discrete)
-        @info "Significant Wave Height" Target=Hs_target Discrete=Hs_discrete
+        #@info "Significant Wave Height" Target=Hs_target Discrete=Hs_discrete
         @test Hs_discrete ≈ Hs_target rtol=1e-3
     end
 end
@@ -75,8 +75,8 @@ function test_uniform_energy_sampling(spec::AbstractSpectrum)
 
     # Discretize using the Energy Domain marker
     nf = 20
-    ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
-                          domain=FrequencySampling.Energy, mess=false)
+    ds = DiscreteSpectralSpreading(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
+                          domain=SpectralSampling.Energy, mess=false)
     
     # Integrate energy per bin
     f_edges = get_frequencies(ds)
@@ -95,7 +95,7 @@ function test_uniform_energy_sampling(spec::AbstractSpectrum)
     std_energ = std(energies)
     coeff_of_variation = std_energ / avg_energ
     
-    @info "Energy Consistency" Mean=avg_energ Std=std_energ CV=coeff_of_variation
+    #@info "Energy Consistency" Mean=avg_energ Std=std_energ CV=coeff_of_variation
     
     # The energies should be extremely consistent
     @test coeff_of_variation < 1e-3
@@ -120,7 +120,7 @@ function test_signal_reconstruction(spec::AbstractSpectrum)
     
     # Test with Equal Energy sampling to prove the strategy works
     nf = 2^13
-    ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
+    ds = DiscreteSpectralSpreading(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
                           domain=FrequencyDomain(), mess=false)
     
     # --- 2. Signal Synthesis ---
@@ -159,7 +159,7 @@ function test_signal_reconstruction(spec::AbstractSpectrum)
     S_max_target = ContinuousSpectrums.get_density(spec, fp_target)
     S_max_sim = maximum(avg_psd)
     
-    @info "Reconstruction Results" Hs_target Hs_sim fp_target fp_sim S_max_target S_max_sim
+    #@info "Reconstruction Results" Hs_target Hs_sim fp_target fp_sim S_max_target S_max_sim
     
     @test S_max_sim ≈ S_max_target rtol=0.15 
 end

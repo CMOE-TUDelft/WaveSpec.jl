@@ -9,7 +9,7 @@ include("Utils/Truncation.jl")
 include("ContinuousSpectrums/ContinuousSpectrums.jl")
 
 # Inlcude Spectral Samplings strategies
-include("FrequencySampling.jl")
+include("SpectralSampling.jl")
 
 # Include the Discrete Spectrums module
 include("SpectralSpreading.jl")

@@ -17,16 +17,16 @@ function prepare_discrete_models()
     nθ = 37
 
     # Prepare Models in list of tuples (name, structure)
-    models = [("Normal", SpreadingModel(:normal, μ, σ, θmin, θmax, nθ)),
-              ("Uniform", SpreadingModel(:uniform, μ, σ, θmin, θmax, nθ)),
-              ("Cosine Power", SpreadingModel(:cosinepow, μ, σ, θmin, θmax, nθ)),
-              ("Von Mises", SpreadingModel(:vonmises, μ, σ, θmin, θmax, nθ)),
-              ("Donelan-Banner", SpreadingModel(:donelan, μ, σ, θmin, θmax, nθ))]
+    models = [("Normal", DiscreteAngularSpreading(:normal, μ, σ, θmin, θmax, nθ)),
+              ("Uniform", DiscreteAngularSpreading(:uniform, μ, σ, θmin, θmax, nθ)),
+              ("Cosine Power", DiscreteAngularSpreading(:cosinepow, μ, σ, θmin, θmax, nθ)),
+              ("Von Mises", DiscreteAngularSpreading(:vonmises, μ, σ, θmin, θmax, nθ)),
+              ("Donelan-Banner", DiscreteAngularSpreading(:donelan, μ, σ, θmin, θmax, nθ))]
     return models
 end
 
 
-function test_model_discretisation(model::SpreadingModel; rtol=1e-3)
+function test_model_discretisation(model::DiscreteAngularSpreading; rtol=1e-3)
     # Discrete model area must be 1.0 
     weights = get_weights(model)
     Δθ = get_bandwidths(model)

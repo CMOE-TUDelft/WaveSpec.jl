@@ -1,4 +1,4 @@
-module FrequencySampling
+module SpectralSampling
 
 using ..ContinuousSpectrums
 using ..Integration
@@ -24,7 +24,7 @@ abstract type SamplingDomain end
 struct FrequencyDomain <: SamplingDomain end
 struct EnergyDomain    <: SamplingDomain end
 
-# Constants for easy use: FrequencySampling.Frequency
+# Constants for easy use: SpectralSampling.Frequency
 const Frequency = FrequencyDomain()
 const Energy    = EnergyDomain()
 
