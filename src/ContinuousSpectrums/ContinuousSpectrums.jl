@@ -1,18 +1,36 @@
 module ContinuousSpectrums
 
+using ..PhysicalConstants
 using ..Integration
 using ..Truncation
 using RecipesBase
 
 export AbstractSpectrum
-export JONSWAP, PiersonMoskowitz, TMA 
-export get_fmax, get_fmin, get_density
+export JONSWAP, TMA, Bretschneider, Donelan, OchiHubble 
+export get_Hs, get_Tp, get_density, get_fmax, get_fmin
+export get_phi, compute_ochi_component
 export integrate, get_cumulative_energy
 
 # All spectrum models which are defined in this folder/module will inherit from abstract type AbstractSpectrum.
 abstract type AbstractSpectrum end
 
 # --- DEFINE AbstractSpectrum's FUNCTIONS INTERFACES ---
+
+"""
+    get_Hs(s::AbstractSpectrum)
+Returns the significant wave height Hs [m] of the spectrum.
+"""
+function get_Hs(s::AbstractSpectrum)
+    error("Function 'get_Hs' not implemented for $(typeof(s))")
+end
+
+"""
+    get_Tp(s::AbstractSpectrum)
+Returns the peak period Tp [s] of the spectrum.
+"""
+function get_Tp(s::AbstractSpectrum)
+    error("Function 'get_Tp' not implemented for $(typeof(s))")
+end
 
 """
     get_density(s::AbstractSpectrum, f::Real)
@@ -23,7 +41,6 @@ Must be implemented by all subtypes.
 function get_density(s::AbstractSpectrum, f::Real)
     error("Function 'get_density' not implemented for $(typeof(s))")
 end
-
 
 # --- INCLUDE SPECIFIC SPECTRUM MODELS ---
 
@@ -45,11 +62,11 @@ based on the peak frequency: f_max = multiplier * f_p.
 According to literature, f_max between 3 to 5 times f_p is sufficient to capture more than 99% of the energy.
 """
 function get_fmax(s::AbstractSpectrum; multiplier=5.0)
-    return multiplier * s.fp
+    return multiplier / get_Tp(s)
 end
 
 function get_fmin(s::AbstractSpectrum; multiplier=1e-4)
-    return multiplier * s.fp
+    return multiplier / get_Tp(s)
 end
 
 # ----------------------

@@ -18,7 +18,7 @@ struct TMA{T<:Real} <: AbstractSpectrum
     Ag_tma::T       
 end
 
-# --- 1. Primary Constructor ---
+# --- Primary Constructor ---
 function TMA(Hs::Real, Tp::Real, h::Real, γ::Union{Real, Nothing}=nothing)
     # 1. Create the base JONSWAP (handles γ estimation internally)
     base_js = isnothing(γ) ? JONSWAP(Hs, Tp) : JONSWAP(Hs, Tp, γ)
@@ -32,8 +32,27 @@ function TMA(Hs::Real, Tp::Real, h::Real, γ::Union{Real, Nothing}=nothing)
     return TMA{T}(base_js, h, Ag_tma)
 end
 
-# --- 2. The Phi Factor (Kitaigorodskii) ---
-function get_phi(f::Real, h::Real)
+# --- Accessor Functions ---
+get_Hs(s::TMA) = s.js.Hs
+get_Tp(s::TMA) = s.js.Tp
+
+
+# --- The Phi Factor (Kitaigorodskii) ---
+function get_phi(s::TMA, f::Real)
+    # Dimensionless depth parameter
+    ωh = 2π * f * sqrt(s.h / g)
+    
+    if ωh <= 1.0
+        return 0.5 * ωh^2
+    elseif ωh < 2.0
+        return 1.0 - 0.5 * (2.0 - ωh)^2
+    else
+        return 1.0
+    end
+end
+
+
+function _get_phi(f::Real, h::Real)
     # Dimensionless depth parameter
     ωh = 2π * f * sqrt(h / g)
     
@@ -46,7 +65,7 @@ function get_phi(f::Real, h::Real)
     end
 end
 
-# --- 3. Density Function (The Exploit) ---
+# --- Density Function ---
 function get_density(s::TMA, f::Real)
     # We call the underlying JONSWAP density
     # But we must swap the JONSWAP Ag for our TMA-specific Ag
@@ -54,10 +73,10 @@ function get_density(s::TMA, f::Real)
     
     # Since get_density(js) already includes s.js.Ag, 
     # we normalize it out and apply the TMA Ag + Phi factor
-    return (js_raw / s.js.Ag) * s.Ag_tma * get_phi(f, s.h)
+    return (js_raw / s.js.Ag) * s.Ag_tma * get_phi(s, f)
 end
 
-# --- 4. Normalization ---
+# --- Normalization ---
 function compute_tma_normalization(js::JONSWAP, h::Real)
     # Integrate the shape: [JONSWAP_shape] * [Phi]
     # We use js.fp and js.γ from the existing struct
@@ -68,9 +87,8 @@ function compute_tma_normalization(js::JONSWAP, h::Real)
         b = exp(-0.5 * ((fr - 1.0) / σ)^2)
         S_js_unit = (5.0 * fr^-5 * exp(-1.25 * fr^-4)) * js.γ^b
         
-        return (1.0 / js.fp) * S_js_unit * get_phi(f, h)
+        return (1.0 / js.fp) * S_js_unit * _get_phi(f, h)
     end
 
-    total_area = IntegrateGaussQuad(tma_shape, order=2, a=1e-4, b=5.0, n=250)
-    return 1.0 / total_area
+    return 1.0 / IntegrateGaussQuad(tma_shape, order=2, a=1e-4, b=5.0, n=250)
 end

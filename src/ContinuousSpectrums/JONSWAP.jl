@@ -9,8 +9,6 @@ Creates a JONSWAP (JOint North Sea WAve Project) spectrum instance with given:
     - optional peak enhancement factor γ -> Controls the sharpness/height of the spectrum's peak,
 If γ is not provided, estimated based on Hs and Tp.
 """
-
-
 struct JONSWAP{T<:Real} <: AbstractSpectrum
     Hs::T   # Significant wave height
     Tp::T   # Peak period
@@ -22,7 +20,7 @@ struct JONSWAP{T<:Real} <: AbstractSpectrum
     σ₂::T   # Spectral width parameter for frequencies above peak
 end
 
-# --- 1. Full Constructor (All parameters provided) ---
+# --- Full Constructor (All parameters provided) ---
 # This is primary entry point
 function JONSWAP(Hs::Real, Tp::Real, γ::Real)
     T = promote_type(typeof(Hs), typeof(Tp), typeof(γ))
@@ -34,14 +32,14 @@ function JONSWAP(Hs::Real, Tp::Real, γ::Real)
     return JONSWAP{T}(Hs, Tp, fp, γ, Ag, ωp, σ₁, σ₂)
 end
 
-# --- 2. Partial Constructor (Hs and Tp only) ---
+# --- Partial Constructor (Hs and Tp only) ---
 # Automatically estimates γ
 function JONSWAP(Hs::Real, Tp::Real)
     est_γ = estimate_γ(Hs, Tp)
     return JONSWAP(Hs, Tp, est_γ)
 end
 
-# --- 3. Unified Keyword Partial Constructor 
+# --- Unified Keyword Partial Constructor 
 # Instead of two separate functions, use one that checks what was provided
 function JONSWAP(;Hs::Union{Real, Nothing}=nothing, 
                   Tp::Union{Real, Nothing}=nothing, 
@@ -65,6 +63,8 @@ function JONSWAP(;Hs::Union{Real, Nothing}=nothing,
     end
 end
 
+
+# --- Estimation Functions ---
 """
     estimate_γ(Hs, Tp)
 
@@ -99,7 +99,12 @@ function estimate_Tp(Hs::Real, γ=3.3)
     return sqrt(Hs / a)
 end
 
+# --- Accessor Functions ---
+get_Hs(s::JONSWAP) = s.Hs
+get_Tp(s::JONSWAP) = s.Tp
 
+
+# --- Density Function ---
 """
     get_density(s::JONSWAP, f::Real)
 

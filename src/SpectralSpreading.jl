@@ -51,7 +51,7 @@ function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin
     m₀ = sum(densities .* dfs)
 
     # 5. Normalization factor (Energy Preservation)
-    norm_factor = (shape.Hs / (4.0 * sqrt(m₀)))^2
+    norm_factor = (ContinuousSpectrums.get_Hs(shape) / (4.0 * sqrt(m₀)))^2
     
     if mess
         comp_Hs = 4.0 * sqrt(m₀)
@@ -64,9 +64,9 @@ function DiscreteSpectrum(shape::AbstractSpectrum, strat::AbstractSampling, fmin
         println("Samples:      ", nf)
         println("Bins (nf):    ", nf-1)
         println("Discrete Hs:  ", round(comp_Hs, digits=3), " m")
-        println("Target Hs:    ", round(shape.Hs, digits=3), " m")
+        println("Target Hs:    ", round(ContinuousSpectrums.get_Hs(shape), digits=3), " m")
         println("Discrete Tp:  ", round(1.0 / comp_fs, digits=3), " s")
-        println("Target Tp:    ", round(shape.Tp, digits=3), " s")
+        println("Target Tp:    ", round(ContinuousSpectrums.get_Tp(shape), digits=3), " s")
         println("Correction:   ", round(norm_factor, digits=3))
         println("----------------------------")
     end

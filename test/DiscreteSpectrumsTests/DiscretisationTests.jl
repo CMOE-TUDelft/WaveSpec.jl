@@ -8,10 +8,37 @@ using WaveSpec.Signal
 using Statistics
 
 
-@testset "Discrete Energy Conservation (Amplitude Test)" begin
+"""
+    prepare_test_models()
+Prepares a list of implemented continuous spectral models, with tuples: (model_name::String, model_instance::AbstractSpectrum)
+"""
+function prepare_test_models()
+    # Target Parameters
     Hs_target = 3.0
-    spec = JONSWAP(Hs_target, 10.0)
-    
+    Tp_target = 2.0
+    h_target  = 30.0
+    U10_target = 10.0
+
+    Hs_target_2 = 1.0
+    Tp_target_2 = 4.0
+    λ1 = 2
+    λ2 = 3
+
+    # Prepare Models in list of tuples (name, structure)
+    models = [("JONSWAP", JONSWAP(Hs_target, Tp_target)), 
+              ("TMA", TMA(Hs_target, Tp_target, h_target)),
+              ("Donelan", Donelan(Hs_target, Tp_target, U10_target)), 
+              ("Bretschneider", Bretschneider(Hs_target, Tp_target)),
+              ("OchiHubble", OchiHubble(Hs_target, Tp_target, λ1, Hs_target_2, Tp_target_2, λ2))]
+
+    return models
+end
+
+
+function test_energy_conservation_amplitude(spec::AbstractSpectrum)
+    # Extract target parameters
+    Hs_target = ContinuousSpectrums.get_Hs(spec)
+
     # Try different sampling strategies
     strategies = [UniformSampling(), LogSampling(), ChebyshevSampling()]
     domains = [Frequency, Energy] 
@@ -31,29 +58,27 @@ using Statistics
         m0_theoretical = (Hs_target / 4.0)^2
         
         # Check if they match within a tight tolerance
+        @info "1srt order moment" Theoretical=m0_theoretical Discrete=m0_discrete 
         @test m0_discrete ≈ m0_theoretical rtol=1e-3
         
         # 4. Cross-check Hs
         Hs_discrete = 4.0 * sqrt(m0_discrete)
+        @info "Significant Wave Height" Target=Hs_target Discrete=Hs_discrete
         @test Hs_discrete ≈ Hs_target rtol=1e-3
     end
 end
 
 
-@testset "Uniform Energy Domain Sampling Check" begin
-    # 1. Setup
-    Hs = 3.0
-    spec = JONSWAP(Hs, 10.0)
-    nf = 50
-    
-    # 2. Discretize using the Energy Domain marker
-    # We use UniformSampling here to get 'Equal Energy' steps
+
+function test_uniform_energy_sampling(spec::AbstractSpectrum)
+    Hs_target = ContinuousSpectrums.get_Hs(spec)
+
+    # Discretize using the Energy Domain marker
+    nf = 20
     ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
                           domain=FrequencySampling.Energy, mess=false)
     
-    # 3. Integrate energy per bin
-    # All bins should have the same energy stored in them for the uniform energy sampling 
-    n_substeps = 200
+    # Integrate energy per bin
     f_edges = get_frequencies(ds)
     energies = zeros(ds.nbands)
     for i in 1:ds.nbands
@@ -61,22 +86,8 @@ end
         f_start = f_edges[i]
         f_end   = f_edges[i+1]
         
-        # 2. Create a micro-grid inside this specific bin
-        # We sample n_substeps points to capture the curve's shape
-        f_micro = range(f_start, f_end, length=n_substeps)
-        df = (f_end - f_start) / (n_substeps - 1)
-        
-        # 3. Integrate S(f) using the Trapezoidal Rule
-        bin_energy = 0.0
-        for j in 1:(n_substeps - 1)
-            S0 = ContinuousSpectrums.get_density(spec, f_micro[j])
-            S1 = ContinuousSpectrums.get_density(spec, f_micro[j+1])
-            
-            # Area of a small trapezoid: (average height) * width
-            bin_energy += 0.5 * (S0 + S1) * df
-        end
-        # Save energy
-        energies[i] = bin_energy
+        # 2. Integrate energy in the bin
+        energies[i] = integrate(spec, f_start, f_end)
     end
 
     # We check the relative standard deviation (Coefficient of Variation)
@@ -91,29 +102,30 @@ end
     
     # 5. Check the theoretical value
     # m0 = (Hs/4)^2. Each bin should have m0 / (nf-1) variance.
-    expected_energy = (Hs/4.0)^2 / ds.nbands
+    expected_energy = (Hs_target/4.0)^2 / ds.nbands
     
     @test all(isapprox.(energies, expected_energy, rtol=1e-2))
 end
 
 
-@testset "Spectrum Reconstruction (IFT/FFT)" begin
-    # --- 1. Discrete Spectrum ---
-    Hs_target = 3.0
-    Tp_target = 10.0
-    spec = JONSWAP(Hs_target, Tp_target)
+
+function test_signal_reconstruction(spec::AbstractSpectrum)
+    # Extract target parameters
+    Hs_target = ContinuousSpectrums.get_Hs(spec)
+    fp_target = 1.0 / ContinuousSpectrums.get_Tp(spec)
 
     # Continuous Spectrum 
     f_cont = range(get_fmin(spec), get_fmax(spec), length=1000)
     S_cont = [ContinuousSpectrums.get_density(spec, f) for f in f_cont]
     
     # Test with Equal Energy sampling to prove the strategy works
-    ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), 750; 
+    nf = 2^13
+    ds = DiscreteSpectrum(spec, UniformSampling(), get_fmin(spec), get_fmax(spec), nf; 
                           domain=FrequencyDomain(), mess=false)
     
     # --- 2. Signal Synthesis ---
     # Sampling parameters
-    N = 2^14                        # Even number (power of 2) of samplings in time (choose high number for long time window)
+    N = 2^14   # N = 2 * nf         # Even number (power of 2) of samplings in time (choose high number for long time window)
     h = 2.0                         # water depth
     fs = 2.0 *get_fmax(ds.spectrum) # Nyquist frequency (avoid aliasing)
     t, η_signal = generate_signal(ds, h, N, fs=fs)
@@ -124,36 +136,67 @@ end
     
     # --- 4. Spectral Validation (Reconstruction) ---
     f_axis, fAmp, psd = get_single_sided_spectrum(η_signal, fs)
+    # Smooth the signal spectrum by averaging over time windows
+    f_avg, avg_psd = averaged_psd(f_axis, psd)
     
     # Test 4.1: Check the peak frequency
-    f_peak_sim = f_axis[argmax(psd)]
-    f_target = 1.0 / Tp_target
-    @test f_peak_sim ≈ f_target atol=0.01
+    fp_sim = f_avg[argmax(avg_psd)]
+    @test fp_sim ≈ fp_target atol=0.01
     
     # Test 4.2: The integral of the signal PSD should match the target variance
     @test sum(psd .* fs/N) ≈ Hs_target^2 / 16 rtol=1e-2
 
     # Test 4.3: Compare Integrated Energy in Bands.
-    # For example, check if the energy between $0.8 f_p$ and $1.2 f_p$ is the same in both the model and the simulation:
-
-    # Energy in the peak region
-    mask_sim = (f_axis .> 0.08) .& (f_axis .< 0.12)
+    mask_sim = (f_axis .> 0.8*fp_target) .& (f_axis .< 1.2*fp_target)
     energy_sim = sum(psd[mask_sim]) * (f_axis[2] - f_axis[1])
 
-    mask_target = (f_cont .> 0.08) .& (f_cont .< 0.12)
+    mask_target = (f_cont .> 0.8*fp_target) .& (f_cont .< 1.2*fp_target)
     energy_target = sum(S_cont[mask_target]) * (f_cont[2] - f_cont[1])
 
     @test energy_sim ≈ energy_target rtol=0.05
 
     # Test 4.4: Check if the recovered peak density matches the target density
-    S_max_target = ContinuousSpectrums.get_density(spec, f_target)
-    # Smooth the signal spectrum by averaging over time windows
-    f_avg, avg_psd = averaged_psd(f_axis, psd)
+    S_max_target = ContinuousSpectrums.get_density(spec, fp_target)
     S_max_sim = maximum(avg_psd)
     
-    @info "Reconstruction Results" H_target Hs_sim f_peak_target f_peak_sim S_max_target S_max_sim
+    @info "Reconstruction Results" Hs_target Hs_sim fp_target fp_sim S_max_target S_max_sim
     
     @test S_max_sim ≈ S_max_target rtol=0.15 
+end
+
+
+
+@testset "Discrete Energy Conservation (Amplitude Test)" begin
+    # Prepare models
+    models = prepare_test_models()
+    # Test models
+    for (name, model) in models
+        @testset "Spectrum: $name" begin    
+            test_energy_conservation_amplitude(model)
+        end
+    end
+end
+
+@testset "Uniform Energy Domain Sampling Check" begin
+    # Prepare models
+    models = prepare_test_models()
+    # Test models
+    for (name, model) in models
+        @testset "Spectrum: $name" begin    
+            test_uniform_energy_sampling(model)
+        end
+    end
+end
+
+@testset "Spectrum Reconstruction (IFT/FFT)" begin
+    # Prepare models
+    models = prepare_test_models()
+    # Test models
+    for (name, model) in models
+        @testset "Spectrum: $name" begin    
+            test_signal_reconstruction(model)
+        end
+    end
 end
 
 end # module

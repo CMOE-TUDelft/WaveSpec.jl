@@ -15,13 +15,19 @@ struct Bretschneider{T<:Real} <: AbstractSpectrum
     fp::T
 end
 
-# --- 1. Primary Constructor ---
+# --- Primary Constructor ---
 function Bretschneider(Hs::Real, Tp::Real)
     T = promote_type(typeof(Hs), typeof(Tp))
     fp = 1.0 / Tp
     return Bretschneider{T}(Hs, Tp, fp)
 end
 
+# --- Accessor Functions ---
+get_Hs(s::Bretschneider) = s.Hs
+get_Tp(s::Bretschneider) = s.Tp
+
+
+# --- Density Function ---
 """
     get_density(s::Bretschneider, f::Real)
 

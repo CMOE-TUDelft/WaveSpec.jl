@@ -21,7 +21,7 @@ struct Donelan{T<:Real} <: AbstractSpectrum
     σ₂::T
 end
 
-# --- 1. Primary Constructor ---
+# --- Primary Constructor ---
 function Donelan(Hs::Real, Tp::Real, U10::Real)
     T = promote_type(typeof(Hs), typeof(Tp), typeof(U10))
     fp = 1.0 / Tp
@@ -48,6 +48,10 @@ function Donelan(Hs::Real, Tp::Real, U10::Real)
 
     return Donelan{T}(Hs, Tp, U10, fp, γ, Ag, σ₁, σ₂)
 end
+
+# --- 2. Accessor Functions ---
+get_Hs(s::Donelan) = s.Hs
+get_Tp(s::Donelan) = s.Tp
 
 """
     get_density(s::Donelan, f::Real)

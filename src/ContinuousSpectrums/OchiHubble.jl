@@ -19,7 +19,7 @@ struct OchiHubble{T<:Real} <: AbstractSpectrum
     total_Hs::T     # Total significant wave height
 end
 
-# --- 1. Primary Constructor ---
+# --- Primary Constructor ---
 function OchiHubble(Hs1::Real, Tp1::Real, λ1::Real, 
                     Hs2::Real, Tp2::Real, λ2::Real)
                     
@@ -30,13 +30,21 @@ function OchiHubble(Hs1::Real, Tp1::Real, λ1::Real,
     fp2 = 1.0 / Tp2
     total_Hs = sqrt(Hs1^2 + Hs2^2)
     
-    return OchiHubble{T}(Hs1, Tp1, λ1, Hs2, Tp2, λ2, fp1, fp2, total_Hs)
+    return OchiHubble{T}(Hs1, Tp1, λ1, fp1, Hs2, Tp2, λ2, fp2, total_Hs)
 end
 
-# --- 2. Keyword Constructor ---
-function OchiHubble(;Hs1=1.0, Tp1=14.0, λ1=1.0, 
-                     Hs2=2.0, Tp2=7.0, λ2=2.0)
-    return OchiHubble(Hs1, Tp1, λ1, Hs2, Tp2, λ2)
+
+# --- Accessor Functions ---
+get_Hs(s::OchiHubble) = s.total_Hs
+function get_Tp(s::OchiHubble) 
+    # Return the peak period of the dominant component
+    S1 = get_density(s, s.fp1)
+    S2 = get_density(s, s.fp2)
+    if S1 >= S2
+        return s.Tp1
+    else
+        return s.Tp2
+    end  
 end
 
 """
