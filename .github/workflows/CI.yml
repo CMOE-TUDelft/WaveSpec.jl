@@ -16,25 +16,25 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        version:
+      matrix:                                         # Defines the different configurations to test against:
+        version:                                      #   - Julia versions to test.
           - '1.8'
           - 'nightly'
-        os:
+        os:                                           #   - Operating systems to test.
           - ubuntu-latest
-        arch:
+        arch:                                         #   - Architectures to test.
           - x64
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v2                     # Fetches the code from the Git repository.
+      - uses: julia-actions/setup-julia@v1            # Installs the specific version from the matrix 
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
-      - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v2
+      - uses: julia-actions/cache@v1                  # Speeds up the build process by reusing previously downloaded and compiled dependencies
+      - uses: julia-actions/julia-buildpkg@v1         # Builds the package
+      - uses: julia-actions/julia-runtest@v1          # Executes the code in test/runtests.jl. This is the core check.
+      - uses: julia-actions/julia-processcoverage@v1  # Generates code coverage data
+      - uses: codecov/codecov-action@v2               # Uploads the code coverage report (lcov.info) to an external service like 
         with:
           files: lcov.info
   docs:
@@ -43,12 +43,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v2                     # Fetches the code from the Git repository.              
+      - uses: julia-actions/setup-julia@v1            # Installs the latest stable Julia version    
         with:
-          version: '1'
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-docdeploy@v1
+          version: '1'                                # Use the latest stable Julia 1.x version
+      - uses: julia-actions/julia-buildpkg@v1         # Builds the package
+      - uses: julia-actions/julia-docdeploy@v1        # Builds builds the documentation using Documenter.jl and then automatically deploys the generated HTML files to a designated branch of the repository (often gh-pages)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: |

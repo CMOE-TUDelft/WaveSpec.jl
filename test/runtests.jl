@@ -1,5 +1,11 @@
-using WaveSpec
+module WaveSpecTests
+
 using Test
 
-@time @testset "JONSWAP" begin include("testJonswap.jl") end
+@time @testset "Angular Spreading Models" begin include("AngularSpreadingTests/runtests.jl") end
 
+@time @testset "Continuous Spectrums" begin include("ContinuousSpectrumsTests/runtests.jl") end
+
+@time @testset "Discrete Spectrums" begin include("DiscreteSpectrumsTests/runtests.jl") end
+
+end # module
