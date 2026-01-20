@@ -386,6 +386,15 @@ end
     layout := (1, 2)
     size   := (1000, 400)
 
+    # User provided features, otherwise default values
+    spectrum_label = get(plotattributes, :label, "")
+    color_spectrum = get(plotattributes, :color_spectrum, :black)
+    color_samples = get(plotattributes, :color_samples, :red)
+    marker_type = get(plotattributes, :marker_type, :circle)
+    marker_size = get(plotattributes, :marker_size, 3)
+    alpha = get(plotattributes, :alpha, 0.3)
+    plot_bins = get(plotattributes, :plot_bins, true)
+
     # 1. Continuous Model
     f_range = range(ContinuousSpectrums.get_fmin(spec.spectrum), ContinuousSpectrums.get_fmax(spec.spectrum), length=300)
     S_cont = [ContinuousSpectrums.get_density(spec.spectrum, f) for f in f_range]
@@ -412,38 +421,40 @@ end
     # 1a. Continuous spectrum
     @series begin
         subplot := 1
-        label := "Continuous Spectrum"
-        linecolor := :black
+        label := "Spectrum " * spectrum_label
+        linecolor := color_spectrum
         lw := 2
         f_range, S_cont
     end
 
     # 1b. Spectral Bins (Bars)
-    @series begin
-        subplot    := 1
-        seriestype := :bar
-        label      := "Spectral bins"
-        color      := :orange
-        alpha      := 0.3
-        bar_width  := Δf
-        f_centers, S_centers
-    end
+    if plot_bins
+        @series begin
+            subplot    := 1
+            seriestype := :bar
+            label      := "Bins " * spectrum_label
+            color      := color_samples
+            alpha      := alpha
+            bar_width  := Δf
+            f_centers, S_centers
+        end
 
-    # 1c. Vertical lines for bin edges
-    @series begin
-        subplot    := 1
-        seriestype := :vline
-        label      := false
-        color      := :gray
-        alpha      := 0.3
-        f_edges
+        # 1c. Vertical lines for bin edges
+        @series begin
+            subplot    := 1
+            seriestype := :vline
+            label      := false
+            color      := :gray
+            alpha      := 0.3
+            f_edges
+        end
     end
 
     # 1d. Discrete Samples (Points + Stems)
     @series begin
         subplot   := 1
         label     := false
-        linecolor := :red
+        linecolor := color_samples
         lw        := 1
         collect_f, collect_S
     end
@@ -451,10 +462,10 @@ end
     @series begin
         subplot    := 1
         seriestype := :scatter
-        label      := "Discrete Samples"
-        marker     := :circle
-        markersize := 3
-        markercolor := :red
+        label      := "Samples " * spectrum_label
+        marker     := marker_type
+        markersize := marker_size
+        markercolor := color_samples
         f_edges, S_edges
     end
 
@@ -462,9 +473,9 @@ end
     @series begin
         subplot := 1
         label   := false
-        xguide  := "Frequency f [Hz]"
-        yguide  := "Spectral Density S(f) [m²s]"
-        title   := "Spectral Discretization"
+        xguide  --> "Frequency f [Hz]"
+        yguide  --> "Spectral Density S(f) [m²s]"
+        title   --> "Spectral Discretization"
         # This is a dummy series to apply labels to the subplot
         [], []
     end
@@ -474,9 +485,9 @@ end
     @series begin
         subplot    := 2
         seriestype := :bar
-        label      := false
-        color      := :green
-        alpha      := 0.6
+        label      := spectrum_label
+        color      := color_samples
+        alpha      := alpha
         xguide     := "Bin Index"
         yguide     := "Energy E [m²]"
         title      := "Energy Distribution"

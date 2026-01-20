@@ -125,20 +125,25 @@ end
 
 @recipe function f(s::AbstractSpectrum; n_points=500)
     # Plot Attributes
-    title  := "Continuous Spectrum PDF"
-    xlabel := "Frequency f [Hz]"
-    ylabel := "Spectral Density S(f) [m²s]"
-    grid   := false
+    title  --> "Continuous Spectrum PDF"
+    xlabel --> "Frequency f [Hz]"
+    ylabel --> "Spectral Density S(f) [m²s]"
+    grid   --> false
+
+    # User provided features, otherwise default values
+    color_spectrum = get(plotattributes, :color, :black)
+    spectrum_label = get(plotattributes, :label, "")
+    alpha = get(plotattributes, :alpha, 0.3)
 
     # Get plot range 
     f_range = range(get_fmin(s), get_fmax(s), length=n_points)
 
     @series begin
-        label := false
+        label := spectrum_label
         seriestype := :path
         fillrange := 0
-        fillalpha := 0.2
-        linecolor := :black
+        fillalpha := alpha
+        linecolor := color_spectrum
         f_range, [get_density(s, f) for f in f_range]
     end
 

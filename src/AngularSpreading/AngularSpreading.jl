@@ -11,7 +11,8 @@ include("CosinePower.jl")
 include("VonMises.jl")
 include("DonelanBanner.jl")
 
-export DiscreteAngularSpreading, get_seeded_rng
+export DiscreteAngularSpreading
+export change_seed!, get_seeded_rng
 export get_angle, get_angles, 
        get_central_angle, get_central_angles, 
        get_bandwidth, get_bandwidths, get_weights
@@ -243,10 +244,18 @@ end
 
 @recipe function f(sm::DiscreteAngularSpreading; n_points=200)
     # Plot Attributes
-    title  := "Angular spreading discretization"
-    xlabel := "Angle θ (rads)"
-    ylabel := "Probability density"
-    grid   := false
+    title  --> "Angular spreading discretization"
+    xlabel --> "Angle θ (rads)"
+    ylabel --> "Probability density"
+    grid   --> false
+
+    # User provided features, otherwise default values
+    color_pdf = get(plotattributes, :color_pdf, :black)
+    color_samples = get(plotattributes, :color_samples, :red)
+    marker_type = get(plotattributes, :marker_type, :circle)
+    marker_size = get(plotattributes, :marker_size, 3)
+    samples_label = get(plotattributes, :label, "")
+    alpha = get(plotattributes, :alpha, 0.3)
 
     # Get plot range
     a, b = sm.distribution.a, sm.distribution.b
@@ -254,11 +263,11 @@ end
     
     # Define the first series: The Continuous Line
     @series begin
-        label := "Continuous PDF"
+        label := "PDF " * samples_label
         seriestype := :path
         fillrange := 0
-        fillalpha := 0.2
-        linecolor := :black
+        fillalpha := alpha
+        linecolor := color_pdf
         θ_range, [pdf(sm.distribution, θ) for θ in θ_range]
     end
 
@@ -267,11 +276,11 @@ end
     weights = [pdf(sm.distribution, θ) for θ in θ_samples]
     
     @series begin
-        label := "Discrete Samples"
+        label := "Samples " * samples_label
         seriestype := :scatter
-        marker := :circle
-        markersize := 3
-        markercolor := :red
+        marker := marker_type
+        markersize := marker_size
+        markercolor := color_samples
         θ_samples, weights
     end
     
@@ -280,7 +289,7 @@ end
         @series begin
             label := false
             seriestype := :path
-            linecolor := :red
+            linecolor := color_samples
             [t, t], [0, w]
         end
     end
