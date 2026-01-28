@@ -96,5 +96,5 @@ For full documentation, please visit the [documentation website](https://CMOE-TU
 
 ## Contact
 
-Please contact [Oriol Colomes](https://www.tudelft.nl/en/staff/j.o.colomesgene/?cHash=d85db1dfc98f5e255324852d31948ede) or [Shagun Agarwal](https://shagun751.github.io/) for further questions.
+Please contact the main developers [Shagun Agarwal](https://shagun751.github.io/), [Pau Manyer]() or [Oriol Colomés](https://www.tudelft.nl/en/staff/j.o.colomesgene/?cHash=d85db1dfc98f5e255324852d31948ede) for further questions.
 
