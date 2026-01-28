@@ -1,5 +1,9 @@
 # WaveSpec.jl
 
+<p align="left">
+  <img src="docs/src/assets/logo.svg" height="150" alt="WaveSpec.jl logo"/>
+</p>
+
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://CMOE-TUDelft.github.io/WaveSpec.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://CMOE-TUDelft.github.io/WaveSpec.jl/dev/)
 [![Build Status](https://github.com/CMOE-TUDelft/WaveSpec.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/CMOE-TUDelft/WaveSpec.jl/actions/workflows/CI.yml?query=branch%3Amain)
