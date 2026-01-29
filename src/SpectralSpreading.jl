@@ -308,9 +308,7 @@ end
 Returns corrected wave amplitude A(fᵢ) for the specified bin index.
 """
 function get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
-    # Early return for empty or invalid index
-    (idx < 1 || idx > spec.nbands) && return Float64[]
-
+    # Bounds checking is handled by get_energy
     # Calculate amplitude only for the requested index
     return sqrt(2.0 * get_energy(spec, idx))
 end
