@@ -199,4 +199,20 @@ end
     end
 end
 
+@testset "get_bandwidth bounds checking" begin
+    # Create a simple test spectrum
+    spec = JONSWAP(2.0, 8.0)
+    ds = DiscreteSpectralSpreading(spec, UniformSampling(), 0.05, 0.5, 50, mess=false)
+    
+    # Test valid index returns Float64
+    @test typeof(SpectralSpreading.get_bandwidth(ds, 1)) == Float64
+    @test typeof(SpectralSpreading.get_bandwidth(ds, ds.nbands)) == Float64
+    
+    # Test invalid indices throw BoundsError
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, 0)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, -1)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, ds.nbands + 1)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, ds.nbands + 100)
+end
+
 end # module
