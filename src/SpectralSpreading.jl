@@ -97,6 +97,12 @@ function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange
     return get_frequencies(spec, get_spectral_index(spec, f_range))
 end
 
+"""
+    get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
+
+Returns the edge frequency closest to `f_target`.
+Returns `nothing` if `f_target` is outside the valid frequency range `[spec.fmin, spec.fmax]`.
+"""
 function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
     idx = get_spectral_index(spec, f_target)
     # Return nothing if index is invalid (0 or out of bounds)
@@ -104,6 +110,12 @@ function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
     return get_frequency(spec, idx)
 end
 
+"""
+    get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+
+Returns the edge frequency at the given index.
+Returns `nothing` if `idx` is less than 1 or greater than `spec.nf`.
+"""
 function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     all_freqs = get_frequencies(spec)
     return (idx < 1 || idx > spec.nf) ? nothing : all_freqs[idx]
@@ -128,6 +140,12 @@ function get_central_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUni
     return central_freqs[r]
 end
 
+"""
+    get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+
+Returns the central frequency of the bin at the given index.
+Returns `nothing` if `idx` is less than 1 or greater than `spec.nbands`.
+"""
 function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     central_freqs = get_central_frequencies(spec)
     return (idx < 1 || idx > spec.nbands) ? nothing : central_freqs[idx]
@@ -141,6 +159,7 @@ end
     get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
 
 Returns the index (1 to nf-1) of the bin containing the frequency `f_target`.
+Returns `0` if `f_target` is outside the valid frequency range `[spec.fmin, spec.fmax]`.
 """
 function get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
     # Early return for out-of-bounds frequency with sentinel value 0
