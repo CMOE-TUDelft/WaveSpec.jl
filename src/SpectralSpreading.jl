@@ -170,17 +170,26 @@ function get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRa
     f_start = first(f_range)
     f_end   = last(f_range)
     
-    # Find start and end bin
-    idx_start = get_spectral_index(spec, f_start)
-    idx_end   = get_spectral_index(spec, f_end)
-    
-    # Handle out-of-bounds cases
-    if idx_start == 0 && f_start < get_frequencies(spec)[1]
-        idx_start = 1
+    # Find start bin, clamping to valid range
+    idx_start = try
+        get_spectral_index(spec, f_start)
+    catch e
+        if isa(e, DomainError) && f_start < spec.fmin
+            1
+        else
+            rethrow(e)
+        end
     end
     
-    if idx_end == 0 && f_end > get_frequencies(spec)[end]
-        idx_end = spec.nf - 1
+    # Find end bin, clamping to valid range
+    idx_end = try
+        get_spectral_index(spec, f_end)
+    catch e
+        if isa(e, DomainError) && f_end > spec.fmax
+            spec.nbands
+        else
+            rethrow(e)
+        end
     end
 
     # Return as a UnitRange for easy slicing (e.g., spec.f_centers[r])
@@ -268,7 +277,7 @@ Returns corrected wave energy E(fᵢ) for the specified bin index.
 """
 function get_energy(spec::DiscreteSpectralSpreading, idx::Int)
     # get_density and get_bandwidth will throw BoundsError if idx is invalid
-    # Calculate amplitude only for the requested index
+    # Calculate energy only for the requested index
     return get_density(spec, idx) * get_bandwidth(spec, idx)
 end
 
