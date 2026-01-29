@@ -209,10 +209,10 @@ function get_bandwidths(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{In
 end
 
 function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
-    dfs = get_bandwidths(spec)
     if idx < 1 || idx > spec.nbands
-        throw(BoundsError(dfs, idx))
+        throw(BoundsError(1:spec.nbands, idx))
     end
+    dfs = get_bandwidths(spec)
     return dfs[idx]
 end
 
