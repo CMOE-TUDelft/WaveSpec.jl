@@ -207,7 +207,9 @@ function get_bandwidths(sm::DiscreteAngularSpreading, r::AbstractRange)
 end
 
 function get_bandwidth(sm::DiscreteAngularSpreading, idx::Int)
-    (idx < 1 || idx > sm.nθ - 1) && return Float64[]
+    if idx < 1 || idx > sm.nθ - 1
+        throw(BoundsError(1:(sm.nθ - 1), idx))
+    end
     return get_bandwidths(sm)[idx]
 end
 
