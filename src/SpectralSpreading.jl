@@ -174,8 +174,14 @@ function get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRa
     idx_start = try
         get_spectral_index(spec, f_start)
     catch e
-        if isa(e, DomainError) && f_start < spec.fmin
-            1
+        if isa(e, DomainError)
+            if f_start < spec.fmin
+                1
+            elseif f_start > spec.fmax
+                spec.nbands
+            else
+                rethrow(e)
+            end
         else
             rethrow(e)
         end
@@ -185,8 +191,14 @@ function get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRa
     idx_end = try
         get_spectral_index(spec, f_end)
     catch e
-        if isa(e, DomainError) && f_end > spec.fmax
-            spec.nbands
+        if isa(e, DomainError)
+            if f_end < spec.fmin
+                1
+            elseif f_end > spec.fmax
+                spec.nbands
+            else
+                rethrow(e)
+            end
         else
             rethrow(e)
         end
