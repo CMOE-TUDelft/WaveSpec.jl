@@ -165,7 +165,7 @@ function get_angles(sm::DiscreteAngularSpreading, r::AbstractRange)
 end
 
 function get_angle(sm::DiscreteAngularSpreading, idx::Int)
-    (idx < 1 || idx > sm.nθ) && Float64[]
+    (idx < 1 || idx > sm.nθ) && return Float64[]
     return get_angles(sm)[idx]
 end
 
