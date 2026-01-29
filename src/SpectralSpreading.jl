@@ -210,7 +210,10 @@ end
 
 function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
     dfs = get_bandwidths(spec)
-    return (idx < 1 || idx > spec.nbands) ? Float64[] : dfs[idx]
+    if idx < 1 || idx > spec.nbands
+        throw(BoundsError(dfs, idx))
+    end
+    return dfs[idx]
 end
 
 # -------------------------
