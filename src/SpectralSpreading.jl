@@ -98,14 +98,15 @@ function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
-    # Early return for empty or invalid frequency
-    (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
-    return get_frequency(spec, get_spectral_index(spec, f_target))
+    idx = get_spectral_index(spec, f_target)
+    # Return nothing if index is invalid (0 or out of bounds)
+    (idx == 0) && return nothing
+    return get_frequency(spec, idx)
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     all_freqs = get_frequencies(spec)
-    return (idx < 1 || idx > spec.nf) ? Float64[] : all_freqs[idx]
+    return (idx < 1 || idx > spec.nf) ? nothing : all_freqs[idx]
 end
 
 # -------------------------------------
@@ -129,7 +130,7 @@ end
 
 function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     central_freqs = get_central_frequencies(spec)
-    return (idx < 1 || idx > spec.nbands) ? Float64[] : central_freqs[idx]
+    return (idx < 1 || idx > spec.nbands) ? nothing : central_freqs[idx]
 end
 
 
@@ -142,8 +143,8 @@ end
 Returns the index (1 to nf-1) of the bin containing the frequency `f_target`.
 """
 function get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
-    # Early return for empty or invalid frequency
-    (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
+    # Early return for out-of-bounds frequency with sentinel value 0
+    (f_target < spec.fmin || f_target > spec.fmax) && return 0
 
     # 2. searchsortedlast finds the highest index i such that edges[i] <= f_target
     idx = searchsortedlast(get_frequencies(spec), f_target)
