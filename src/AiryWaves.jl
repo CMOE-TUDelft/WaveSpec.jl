@@ -5,6 +5,7 @@ using ..SpectralSampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
+using ..ContinuousSpectrums: JONSWAP
 
 export AiryState, generate_sea, get_amplitude, get_random_phases
 
