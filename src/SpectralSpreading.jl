@@ -98,14 +98,19 @@ function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
-    # Early return for empty or invalid frequency
-    (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
+    # Check for invalid frequency
+    if f_target < spec.fmin || f_target > spec.fmax
+        throw(DomainError(f_target, "frequency must be in range [$(spec.fmin), $(spec.fmax)]"))
+    end
     return get_frequency(spec, get_spectral_index(spec, f_target))
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     all_freqs = get_frequencies(spec)
-    return (idx < 1 || idx > spec.nf) ? Float64[] : all_freqs[idx]
+    if idx < 1 || idx > spec.nf
+        throw(BoundsError(all_freqs, idx))
+    end
+    return all_freqs[idx]
 end
 
 # -------------------------------------
@@ -129,7 +134,10 @@ end
 
 function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     central_freqs = get_central_frequencies(spec)
-    return (idx < 1 || idx > spec.nbands) ? Float64[] : central_freqs[idx]
+    if idx < 1 || idx > spec.nbands
+        throw(BoundsError(central_freqs, idx))
+    end
+    return central_freqs[idx]
 end
 
 
@@ -142,8 +150,10 @@ end
 Returns the index (1 to nf-1) of the bin containing the frequency `f_target`.
 """
 function get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
-    # Early return for empty or invalid frequency
-    (f_target < spec.fmin || f_target > spec.fmax) && return Float64[]
+    # Check for invalid frequency
+    if f_target < spec.fmin || f_target > spec.fmax
+        throw(DomainError(f_target, "frequency must be in range [$(spec.fmin), $(spec.fmax)]"))
+    end
 
     # 2. searchsortedlast finds the highest index i such that edges[i] <= f_target
     idx = searchsortedlast(get_frequencies(spec), f_target)
@@ -209,6 +219,9 @@ function get_bandwidths(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{In
 end
 
 function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
+    if idx < 1 || idx > spec.nbands
+        throw(BoundsError(1:spec.nbands, idx))
+    end
     dfs = get_bandwidths(spec)
     if idx < 1 || idx > spec.nbands
         throw(BoundsError(dfs, idx))
@@ -226,8 +239,10 @@ end
 Returns corrected spectral density S(fᵢ) for the specified bin index.
 """
 function get_density(spec::DiscreteSpectralSpreading, idx::Int)
-    # Early return for empty or invalid index
-    (idx < 1 || idx > spec.nbands) && return Float64[]
+    # Check bounds
+    if idx < 1 || idx > spec.nbands
+        throw(BoundsError(1:spec.nbands, idx))
+    end
     # Get the central frequency for the bin
     fᵢ = get_central_frequency(spec, idx)
     # Calculate density on the requested bin
@@ -253,8 +268,10 @@ function get_densities(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
 
-    # Early return for empty or invalid range
-    (start_idx > end_idx) && return Float64[]
+    # Check for invalid range
+    if start_idx > end_idx
+        throw(ArgumentError("invalid range: start_idx ($start_idx) > end_idx ($end_idx)"))
+    end
 
     # Calculate densities only for the requested range
     return [ContinuousSpectrums.get_density(spec.spectrum, f) * spec.norm_factor for f in get_central_frequencies(spec, start_idx:end_idx)]
@@ -270,9 +287,7 @@ end
 Returns corrected wave energy E(fᵢ) for the specified bin index.
 """
 function get_energy(spec::DiscreteSpectralSpreading, idx::Int)
-    # Early return for empty or invalid index
-    (idx < 1 || idx > spec.nbands) && return Float64[]
-
+    # Check bounds (get_density and get_bandwidth will throw if idx is invalid)
     # Calculate amplitude only for the requested index
     return get_density(spec, idx) * get_bandwidth(spec, idx)
 end
@@ -292,7 +307,9 @@ function get_energies(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{Int}
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
 
-    (start_idx > end_idx) && return Float64[]
+    if start_idx > end_idx
+        throw(ArgumentError("invalid range: start_idx ($start_idx) > end_idx ($end_idx)"))
+    end
 
     # Calculate amplitudes only for the requested range
     return get_densities(spec, start_idx:end_idx) .* get_bandwidths(spec, start_idx:end_idx)
@@ -308,9 +325,7 @@ end
 Returns corrected wave amplitude A(fᵢ) for the specified bin index.
 """
 function get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
-    # Early return for empty or invalid index
-    (idx < 1 || idx > spec.nbands) && return Float64[]
-
+    # Bounds checking is handled by get_energy
     # Calculate amplitude only for the requested index
     return sqrt(2.0 * get_energy(spec, idx))
 end
@@ -330,7 +345,9 @@ function get_amplitudes(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{In
     start_idx = max(1, first(r))
     end_idx   = min(last(r), spec.nbands)
 
-    (start_idx > end_idx) && return Float64[]
+    if start_idx > end_idx
+        throw(ArgumentError("invalid range: start_idx ($start_idx) > end_idx ($end_idx)"))
+    end
 
     # Calculate amplitudes only for the requested range
     return sqrt.(2.0 .* get_energies(spec, start_idx:end_idx))

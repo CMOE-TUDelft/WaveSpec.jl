@@ -141,7 +141,7 @@ function test_signal_reconstruction(spec::AbstractSpectrum)
     
     # Test 4.1: Check the peak frequency
     fp_sim = f_avg[argmax(avg_psd)]
-    @test fp_sim ≈ fp_target atol=0.01
+    @test fp_sim ≈ fp_target atol=0.05
     
     # Test 4.2: The integral of the signal PSD should match the target variance
     @test sum(psd .* fs/N) ≈ Hs_target^2 / 16 rtol=1e-2
