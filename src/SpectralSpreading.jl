@@ -97,11 +97,21 @@ function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange
     return get_frequencies(spec, get_spectral_index(spec, f_range))
 end
 
+"""
+    get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
+
+Returns the edge frequency closest to `f_target`.
+"""
 function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
     # get_spectral_index will throw DomainError if f_target is out of range
     return get_frequency(spec, get_spectral_index(spec, f_target))
 end
 
+"""
+    get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+
+Returns the edge frequency at the given index.
+"""
 function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     (idx < 1 || idx > spec.nf) && throw(BoundsError(1:spec.nf, idx))
     all_freqs = get_frequencies(spec)
@@ -127,6 +137,11 @@ function get_central_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUni
     return central_freqs[r]
 end
 
+"""
+    get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+
+Returns the central frequency of the bin at the given index.
+"""
 function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
     (idx < 1 || idx > spec.nbands) && throw(BoundsError(1:spec.nbands, idx))
     central_freqs = get_central_frequencies(spec)
