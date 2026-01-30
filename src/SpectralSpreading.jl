@@ -219,10 +219,10 @@ function get_bandwidths(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{In
 end
 
 function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
-    dfs = get_bandwidths(spec)
     if idx < 1 || idx > spec.nbands
-        throw(BoundsError(dfs, idx))
+        throw(BoundsError(1:spec.nbands, idx))
     end
+    dfs = get_bandwidths(spec)
     return dfs[idx]
 end
 
@@ -236,10 +236,9 @@ end
 Returns corrected spectral density S(fᵢ) for the specified bin index.
 """
 function get_density(spec::DiscreteSpectralSpreading, idx::Int)
-    # Check for invalid index - compute densities to provide informative error
+    # Check bounds
     if idx < 1 || idx > spec.nbands
-        # Use a representative structure for the error message
-        throw(BoundsError(get_central_frequencies(spec), idx))
+        throw(BoundsError(1:spec.nbands, idx))
     end
     # Get the central frequency for the bin
     fᵢ = get_central_frequency(spec, idx)
@@ -285,12 +284,7 @@ end
 Returns corrected wave energy E(fᵢ) for the specified bin index.
 """
 function get_energy(spec::DiscreteSpectralSpreading, idx::Int)
-    # Check for invalid index
-    if idx < 1 || idx > spec.nbands
-        # Use bandwidths to provide informative error
-        throw(BoundsError(get_bandwidths(spec), idx))
-    end
-
+    # Check bounds (get_density and get_bandwidth will throw if idx is invalid)
     # Calculate amplitude only for the requested index
     return get_density(spec, idx) * get_bandwidth(spec, idx)
 end
@@ -328,12 +322,7 @@ end
 Returns corrected wave amplitude A(fᵢ) for the specified bin index.
 """
 function get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
-    # Check for invalid index
-    if idx < 1 || idx > spec.nbands
-        # Use energies to provide informative error
-        throw(BoundsError(get_energies(spec), idx))
-    end
-
+    # Bounds checking is handled by get_energy
     # Calculate amplitude only for the requested index
     return sqrt(2.0 * get_energy(spec, idx))
 end
