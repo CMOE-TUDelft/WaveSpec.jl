@@ -165,7 +165,9 @@ function get_angles(sm::DiscreteAngularSpreading, r::AbstractRange)
 end
 
 function get_angle(sm::DiscreteAngularSpreading, idx::Int)
-    (idx < 1 || idx > sm.nθ) && Float64[]
+    if idx < 1 || idx > sm.nθ
+        throw(BoundsError(1:sm.nθ, idx))
+    end
     return get_angles(sm)[idx]
 end
 
@@ -187,7 +189,9 @@ function get_central_angles(sm::DiscreteAngularSpreading, r::AbstractRange)
 end
 
 function get_central_angle(sm::DiscreteAngularSpreading, idx::Int)
-    (idx < 1 || idx > sm.nθ - 1) && return Float64[]
+    if idx < 1 || idx > sm.nθ - 1
+        throw(BoundsError(1:(sm.nθ - 1), idx))
+    end
     return get_central_angles(sm)[idx]
 end
 
@@ -207,8 +211,11 @@ function get_bandwidths(sm::DiscreteAngularSpreading, r::AbstractRange)
 end
 
 function get_bandwidth(sm::DiscreteAngularSpreading, idx::Int)
-    (idx < 1 || idx > sm.nθ - 1) && return Float64[]
-    return get_bandwidths(sm)[idx]
+    dθs = get_bandwidths(sm)
+    if idx < 1 || idx > sm.nθ - 1
+        throw(BoundsError(dθs, idx))
+    end
+    return dθs[idx]
 end
 
 """
