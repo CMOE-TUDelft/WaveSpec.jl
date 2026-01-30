@@ -223,6 +223,9 @@ function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
         throw(BoundsError(1:spec.nbands, idx))
     end
     dfs = get_bandwidths(spec)
+    if idx < 1 || idx > spec.nbands
+        throw(BoundsError(dfs, idx))
+    end
     return dfs[idx]
 end
 
