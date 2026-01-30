@@ -102,7 +102,7 @@ end
 Statistics.var(tm::TruncatedModel) = begin
     μ = mean(tm)
     f(x) = (x - μ)^2 * pdf(tm, x)
-    return IntegrateGaussQuad(f; a=tm.a, b=tm.b, order=4, n=100) - μ^2
+    return IntegrateGaussQuad(f; a=tm.a, b=tm.b, order=4, n=100)
 end
 
 
