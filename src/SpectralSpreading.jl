@@ -98,18 +98,13 @@ function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, f_target::Real)
-    # Check for invalid frequency
-    if f_target < spec.fmin || f_target > spec.fmax
-        throw(DomainError(f_target, "frequency must be in range [$(spec.fmin), $(spec.fmax)]"))
-    end
+    # get_spectral_index will throw DomainError if f_target is out of range
     return get_frequency(spec, get_spectral_index(spec, f_target))
 end
 
 function get_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+    (idx < 1 || idx > spec.nf) && throw(BoundsError(1:spec.nf, idx))
     all_freqs = get_frequencies(spec)
-    if idx < 1 || idx > spec.nf
-        throw(BoundsError(all_freqs, idx))
-    end
     return all_freqs[idx]
 end
 
@@ -133,6 +128,7 @@ function get_central_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUni
 end
 
 function get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
+    (idx < 1 || idx > spec.nbands) && throw(BoundsError(1:spec.nbands, idx))
     central_freqs = get_central_frequencies(spec)
     if idx < 1 || idx > spec.nbands
         throw(BoundsError(central_freqs, idx))
@@ -179,17 +175,38 @@ function get_spectral_index(spec::DiscreteSpectralSpreading, f_range::AbstractRa
     f_start = first(f_range)
     f_end   = last(f_range)
     
-    # Find start and end bin
-    idx_start = get_spectral_index(spec, f_start)
-    idx_end   = get_spectral_index(spec, f_end)
-    
-    # Handle out-of-bounds cases
-    if idx_start == 0 && f_start < get_frequencies(spec)[1]
-        idx_start = 1
+    # Find start bin, clamping to valid range
+    idx_start = try
+        get_spectral_index(spec, f_start)
+    catch e
+        if isa(e, DomainError)
+            if f_start < spec.fmin
+                1
+            elseif f_start > spec.fmax
+                spec.nbands
+            else
+                rethrow(e)
+            end
+        else
+            rethrow(e)
+        end
     end
     
-    if idx_end == 0 && f_end > get_frequencies(spec)[end]
-        idx_end = spec.nf - 1
+    # Find end bin, clamping to valid range
+    idx_end = try
+        get_spectral_index(spec, f_end)
+    catch e
+        if isa(e, DomainError)
+            if f_end < spec.fmin
+                1
+            elseif f_end > spec.fmax
+                spec.nbands
+            else
+                rethrow(e)
+            end
+        else
+            rethrow(e)
+        end
     end
 
     # Return as a UnitRange for easy slicing (e.g., spec.f_centers[r])
@@ -219,13 +236,8 @@ function get_bandwidths(spec::DiscreteSpectralSpreading, r::AbstractUnitRange{In
 end
 
 function get_bandwidth(spec::DiscreteSpectralSpreading, idx::Int)
-    if idx < 1 || idx > spec.nbands
-        throw(BoundsError(1:spec.nbands, idx))
-    end
+    (idx < 1 || idx > spec.nbands) && throw(BoundsError(1:spec.nbands, idx))
     dfs = get_bandwidths(spec)
-    if idx < 1 || idx > spec.nbands
-        throw(BoundsError(dfs, idx))
-    end
     return dfs[idx]
 end
 
@@ -239,11 +251,7 @@ end
 Returns corrected spectral density S(fᵢ) for the specified bin index.
 """
 function get_density(spec::DiscreteSpectralSpreading, idx::Int)
-    # Check bounds
-    if idx < 1 || idx > spec.nbands
-        throw(BoundsError(1:spec.nbands, idx))
-    end
-    # Get the central frequency for the bin
+    # Get the central frequency for the bin (throws BoundsError if idx is invalid)
     fᵢ = get_central_frequency(spec, idx)
     # Calculate density on the requested bin
     return ContinuousSpectrums.get_density(spec.spectrum, fᵢ) * spec.norm_factor
@@ -325,7 +333,7 @@ end
 Returns corrected wave amplitude A(fᵢ) for the specified bin index.
 """
 function get_amplitude(spec::DiscreteSpectralSpreading, idx::Int)
-    # Bounds checking is handled by get_energy
+    # get_energy will throw BoundsError if idx is invalid
     # Calculate amplitude only for the requested index
     return sqrt(2.0 * get_energy(spec, idx))
 end
