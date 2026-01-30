@@ -45,4 +45,19 @@ end
     end
 end
 
+@testset "get_bandwidth bounds checking" begin
+    # Create a simple test model
+    model = DiscreteAngularSpreading(:normal, 0.0, 15.0 * (π/180), -π/3, π/3, 37)
+    
+    # Test valid index returns Float64
+    @test typeof(AngularSpreading.get_bandwidth(model, 1)) == Float64
+    @test typeof(AngularSpreading.get_bandwidth(model, model.nθ - 1)) == Float64
+    
+    # Test invalid indices throw BoundsError
+    @test_throws BoundsError AngularSpreading.get_bandwidth(model, 0)
+    @test_throws BoundsError AngularSpreading.get_bandwidth(model, -1)
+    @test_throws BoundsError AngularSpreading.get_bandwidth(model, model.nθ)
+    @test_throws BoundsError AngularSpreading.get_bandwidth(model, model.nθ + 100)
+end
+
 end # module DiscretisationTests
