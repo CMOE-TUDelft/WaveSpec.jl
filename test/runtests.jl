@@ -1,6 +1,7 @@
 module WaveSpecTests
 
 using Test
+using WaveSpec
 
 @time @testset "Angular Spreading Models" begin include("AngularSpreadingTests/runtests.jl") end
 

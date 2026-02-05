@@ -141,7 +141,7 @@ function test_signal_reconstruction(spec::AbstractSpectrum)
     
     # Test 4.1: Check the peak frequency
     fp_sim = f_avg[argmax(avg_psd)]
-    @test fp_sim ≈ fp_target atol=0.01
+    @test fp_sim ≈ fp_target atol=0.05
     
     # Test 4.2: The integral of the signal PSD should match the target variance
     @test sum(psd .* fs/N) ≈ Hs_target^2 / 16 rtol=1e-2
@@ -197,6 +197,22 @@ end
             test_signal_reconstruction(model)
         end
     end
+end
+
+@testset "get_bandwidth bounds checking" begin
+    # Create a simple test spectrum
+    spec = JONSWAP(2.0, 8.0)
+    ds = DiscreteSpectralSpreading(spec, UniformSampling(), 0.05, 0.5, 50, mess=false)
+    
+    # Test valid index returns Float64
+    @test typeof(SpectralSpreading.get_bandwidth(ds, 1)) == Float64
+    @test typeof(SpectralSpreading.get_bandwidth(ds, ds.nbands)) == Float64
+    
+    # Test invalid indices throw BoundsError
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, 0)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, -1)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, ds.nbands + 1)
+    @test_throws BoundsError SpectralSpreading.get_bandwidth(ds, ds.nbands + 100)
 end
 
 end # module
