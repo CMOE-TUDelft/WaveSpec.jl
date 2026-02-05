@@ -104,7 +104,3 @@ Please contact the main developers [Shagun Agarwal](https://shagun751.github.io/
 
 ```@index
 ```
-
-```@autodocs
-Modules = [WaveSpec]
-```
