@@ -30,7 +30,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1                  # Speeds up the build process by reusing previously downloaded and compiled dependencies
+      - uses: julia-actions/cache@v3                  # Speeds up the build process by reusing previously downloaded and compiled dependencies
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
       - uses: julia-actions/julia-runtest@v1          # Executes the code in test/runtests.jl. This is the core check.
       - uses: julia-actions/julia-processcoverage@v1  # Generates code coverage data
