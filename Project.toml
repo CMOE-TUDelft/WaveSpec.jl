@@ -26,9 +26,9 @@ PCHIPInterpolation = "0.2"
 Parameters = "0.12"
 Plots = "1"
 Roots = "2"
+SpecialFunctions = "2.7.1"
 TickTock = "1"
 julia = "1.8.5"
-
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
