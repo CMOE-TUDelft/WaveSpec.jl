@@ -34,7 +34,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
       - uses: julia-actions/julia-runtest@v1          # Executes the code in test/runtests.jl. This is the core check.
       - uses: julia-actions/julia-processcoverage@v1  # Generates code coverage data
-      - uses: codecov/codecov-action@v2               # Uploads the code coverage report (lcov.info) to an external service like 
+      - uses: codecov/codecov-action@v5               # Uploads the code coverage report (lcov.info) to an external service like 
         with:
           files: lcov.info
   docs:
