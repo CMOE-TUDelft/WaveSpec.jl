@@ -25,16 +25,16 @@ jobs:
         arch:                                         #   - Architectures to test.
           - x64
     steps:
-      - uses: actions/checkout@v2                     # Fetches the code from the Git repository.
-      - uses: julia-actions/setup-julia@v1            # Installs the specific version from the matrix 
+      - uses: actions/checkout@v6                     # Fetches the code from the Git repository.
+      - uses: julia-actions/setup-julia@v2            # Installs the specific version from the matrix 
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1                  # Speeds up the build process by reusing previously downloaded and compiled dependencies
+      - uses: julia-actions/cache@v3                  # Speeds up the build process by reusing previously downloaded and compiled dependencies
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
       - uses: julia-actions/julia-runtest@v1          # Executes the code in test/runtests.jl. This is the core check.
       - uses: julia-actions/julia-processcoverage@v1  # Generates code coverage data
-      - uses: codecov/codecov-action@v2               # Uploads the code coverage report (lcov.info) to an external service like 
+      - uses: codecov/codecov-action@v5               # Uploads the code coverage report (lcov.info) to an external service like 
         with:
           files: lcov.info
   docs:
@@ -43,8 +43,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v2                     # Fetches the code from the Git repository.              
-      - uses: julia-actions/setup-julia@v1            # Installs the latest stable Julia version    
+      - uses: actions/checkout@v6                     # Fetches the code from the Git repository.              
+      - uses: julia-actions/setup-julia@v2            # Installs the latest stable Julia version    
         with:
           version: '1'                                # Use the latest stable Julia 1.x version
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
