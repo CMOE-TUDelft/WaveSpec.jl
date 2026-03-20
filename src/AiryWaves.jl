@@ -236,11 +236,42 @@ function get_random_phases(state::AiryState)
 end
 
 """
-    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :u, :v, :w])
+    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :u, :v, :w], interp=:linear)
 
 Computes the sea fields on the provided regular grids and returns a NamedTuple
 of interpolation functions for each requested variable. Each interpolant is a
-callable taking (x, y, z, t) and returning the interpolated value.
+callable taking `(x, y, z, t)` and returning the interpolated value.
+
+Arguments
+- `state`: an `AiryState` produced by `AiryState(...)` or constructed manually.
+- `x, y, z, t`: regular 1D coordinate vectors used to compute the fields.
+- `vars`: which fields to compute, default `[:η, :u, :v, :w]`.
+- `interp`: interpolation kernel, `:linear` (default), `:cubic`, or `:nearest`.
+
+Examples
+
+```julia
+using WaveSpec
+
+# (1) Construct an AiryState (example uses a regular monochromatic wave)
+spec = WaveSpec.ContinuousSpectrums.RegularWave(1.0, 5.0)                      # H=1 m, T=5 s
+ds = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(spec)                # discrete spectrum
+spread = WaveSpec.AngularSpreading.DiscreteAngularSpreading(0.0)              # unidirectional
+as = WaveSpec.AiryWaves.AiryState(ds, spread, 50.0)                          # water depth 50 m
+
+# (2) Choose evaluation grid
+x = range(0.0, stop=10.0, length=11)
+y = [0.0]
+z = [0.0]
+t = 0.0:0.1:10.0
+
+# (3) Get interpolants (linear by default)
+itps = WaveSpec.AiryWaves.generate_interpolable_sea(as, collect(x), collect(y), collect(z), collect(t); vars=[:η])
+
+# (4) Evaluate η at an arbitrary point (not necessarily on the grid)
+η_val = itps[:η](1.23, 0.0, 0.0, 2.57)
+```
+
 """
 function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, z::AbstractVector{<:Real}, t::AbstractVector{<:Real}; vars = [:η, :u, :v, :w], interp::Symbol = :linear)
     # Compute sea on the provided grid
