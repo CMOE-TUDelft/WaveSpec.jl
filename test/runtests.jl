@@ -9,4 +9,6 @@ using WaveSpec
 
 @time @testset "Discrete Spectrums" begin include("DiscreteSpectrumsTests/runtests.jl") end
 
+@time @testset "Airy Waves" begin include("AiryWavesTests/AiryStateTests.jl") end
+
 end # module

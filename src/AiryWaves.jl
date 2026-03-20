@@ -281,13 +281,37 @@ function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, 
     for v in vars
         if v in keys(res)
             vals = res[v]
+            # Ensure the computed array has the same dimensionality as the axes tuple
+            target_lens = (length(x), length(y), length(z), length(t))
+            cur_shape = size(vals)
+            # If the value array has fewer dims, add singleton dimensions at the end
+            if length(cur_shape) < 4
+                newshape = Tuple(vcat(collect(cur_shape), ones(Int, 4 - length(cur_shape))))
+                vals = reshape(vals, newshape)
+                cur_shape = size(vals)
+            end
+            # Repeat singleton dimensions to match the requested axes lengths
+            reps = ntuple(i -> cur_shape[i] == target_lens[i] ? 1 : target_lens[i], 4)
+            if any(r -> r != 1, reps)
+                vals = repeat(vals, reps...)
+            end
             # Support several kernels via Interpolations.jl
             if interp == :linear
                 itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.Linear()))
-            elseif interp == :cubic
-                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.Cubic(Interpolations.Line())))
             elseif interp == :nearest
-                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.NoInterp()))
+                # Build a simple nearest-neighbor wrapper without Interpolations.jl
+                itp = nothing
+                local_vals = vals
+                function nearest_wrapper(xq::Real, yq::Real, zq::Real, tq::Real)
+                    # find nearest indices along each axis
+                    ix = findmin(abs.(x .- xq))[2]
+                    iy = findmin(abs.(y .- yq))[2]
+                    iz = findmin(abs.(z .- zq))[2]
+                    it = findmin(abs.(t .- tq))[2]
+                    return local_vals[ix, iy, iz, it]
+                end
+                interp_dict[v] = nearest_wrapper
+                continue
             else
                 itp = nothing
             end
