@@ -16,9 +16,9 @@ export get_moments, get_energies
 The discrete realization of a frequency spectrum. 
 Represents the energy distribution across a finite set of frequency bins.
 """
-struct DiscreteSpectralSpreading
-    spectrum::AbstractSpectrum  # The underlying continuous spectrum (JONSWAP, etc.)
-    sampling::AbstractSampling  # The sampling strategy used
+struct DiscreteSpectralSpreading{S<:AbstractSpectrum, T<:AbstractSampling}
+    spectrum::S  # The underlying continuous spectrum (JONSWAP, etc.)
+    sampling::T  # The sampling strategy used
     domain::SamplingDomain      # Domain over which the spectral sampling is done (Frequency/Energy)
     fmin::Real                  # Lower frequency [Hz]
     fmax::Real                  # Upper frequency [Hz]
@@ -34,7 +34,7 @@ end
 
 Continuous abstract spectrum discretised according to the selected abstract sampling strategy, between fmin and fmax with nf bins.
 """
-function DiscreteSpectralSpreading(shape::AbstractSpectrum, strat::AbstractSampling, fmin::Real, fmax::Real, nf::Int; domain::SamplingDomain = Frequency, mess::Bool=true)
+function DiscreteSpectralSpreading(shape::S, strat::T, fmin::Real, fmax::Real, nf::Int; domain::SamplingDomain = Frequency, mess::Bool=true) where {S<:AbstractSpectrum, T<:AbstractSampling}
     # 1. Generate the nf edges
     freqs = SpectralSampling.generate_grid(strat, domain, shape, fmin, fmax, nf)
     
@@ -74,6 +74,31 @@ function DiscreteSpectralSpreading(shape::AbstractSpectrum, strat::AbstractSampl
     return DiscreteSpectralSpreading(shape, strat, domain, fmin, fmax, nf, nf-1, norm_factor)
 end
 
+"""
+    DiscreteSpectralSpreading(shape::RegularWave; mess=true)
+
+Specialized constructor for RegularWave spectrum type.
+"""
+function DiscreteSpectralSpreading(shape::RegularWave; mess::Bool=true) 
+    # For a regular wave, only one frequency is physically meaningful
+    f0 = 1 / shape.T
+    norm_factor = 1.0  # No normalization needed, all energy is at f0
+    strategy = UniformSampling()  # Sampling strategy doesn't matter for a single frequency
+    domain = FrequencyDomain()
+    if mess
+        println("--- Discrete Spectrum (RegularWave) ---")
+        println("Spectrum:     ", typeof(shape))
+        println("Sampling:     ", typeof(strategy))
+        println("Frequency:    ", f0, " Hz")
+        println("Discrete Hs:  ", shape.H, " m")
+        println("Target Hs:    ", shape.H, " m")
+        println("Discrete Tp:  ", shape.T, " s")
+        println("Target Tp:    ", shape.T, " s")
+        println("----------------------------")
+    end
+    return DiscreteSpectralSpreading(shape, strategy, domain, f0, f0, 2, 1, norm_factor)
+end
+
 
 # --- GETTERS (Lazy Data Generation) ---
 
@@ -95,6 +120,11 @@ end
 
 function get_frequencies(spec::DiscreteSpectralSpreading, f_range::AbstractRange{<:Real})
     return get_frequencies(spec, get_spectral_index(spec, f_range))
+end
+
+function get_frequencies(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}) where T<:AbstractSampling
+    # For RegularWave, we only have one frequency bin at f0 = 1/T
+    return [1 / spec.spectrum.T]
 end
 
 """
@@ -137,6 +167,11 @@ function get_central_frequencies(spec::DiscreteSpectralSpreading, r::AbstractUni
     return central_freqs[r]
 end
 
+function get_central_frequencies(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}) where T<:AbstractSampling
+    # For RegularWave, we only have one central frequency at f0 = 1/T
+    return [1 / spec.spectrum.T]
+end
+
 """
     get_central_frequency(spec::DiscreteSpectralSpreading, idx::Int)
 
@@ -177,6 +212,16 @@ function get_spectral_index(spec::DiscreteSpectralSpreading, f_target::Real)
     end
 
     return idx
+end
+
+function get_spectral_index(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}, f_target::Real) where T<:AbstractSampling
+    # For RegularWave, we only have one bin at f0 = 1/T
+    f0 = 1 / spec.spectrum.T
+    if abs(f_target - f0) <= 1e-6  # Allow for small numerical tolerance
+        return 1  # Only one bin
+    else
+        throw(DomainError(f_target, "frequency must be approximately $(f0) Hz for RegularWave"))
+    end    
 end
 
 
@@ -315,9 +360,22 @@ function get_energy(spec::DiscreteSpectralSpreading, idx::Int)
     return get_density(spec, idx) * get_bandwidth(spec, idx)
 end
 
+function get_energy(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}, idx::Int) where T<:AbstractSampling
+    # For RegularWave, we only have one bin at f0 = 1/T and all energy is concentrated there
+    if idx == 1
+        return ContinuousSpectrums.get_density(spec.spectrum, 1 / spec.spectrum.T)
+    else
+        throw(BoundsError(1:spec.nbands, idx))
+    end
+end
 
 function get_energies(spec::DiscreteSpectralSpreading)
     return get_densities(spec) .* get_bandwidths(spec)
+end
+
+function get_energies(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}) where T<:AbstractSampling
+    # For RegularWave, we only have one bin at f0 = 1/T and all energy is concentrated there
+    return [ContinuousSpectrums.get_density(spec.spectrum, 1 / spec.spectrum.T)]
 end
 
 """
@@ -415,6 +473,11 @@ function get_integrated_energies(spec::DiscreteSpectralSpreading; nfine = 200)
         e_bins[i] = ContinuousSpectrums.integrate(spec.spectrum, f_edges[i], f_edges[i+1]) 
     end
     return e_bins
+end
+
+function get_integrated_energies(spec::DiscreteSpectralSpreading{<:ContinuousSpectrums.RegularWave, T}; nfine = 200) where T<:AbstractSampling
+    # For RegularWave, all energy is concentrated in the single bin at f0 = 1/T
+    return [ContinuousSpectrums.get_density(spec.spectrum, 1 / spec.spectrum.T)]
 end
 
 
