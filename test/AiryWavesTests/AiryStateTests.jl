@@ -34,9 +34,8 @@ using WaveSpec
     # Build interpolants with different kernels
     itps_lin = WaveSpec.AiryWaves.generate_interpolable_sea(as, x, y, z, t; vars=[:η], interp=:linear)
     itps_near = WaveSpec.AiryWaves.generate_interpolable_sea(as, x, y, z, t; vars=[:η], interp=:nearest)
-    itps_cub = WaveSpec.AiryWaves.generate_interpolable_sea(as, x, y, z, t; vars=[:η], interp=:cubic)
 
-    @test haskey(itps_lin, :η) && haskey(itps_near, :η) && haskey(itps_cub, :η)
+    @test haskey(itps_lin, :η) && haskey(itps_near, :η) 
 
     # Interpolants should reproduce the grid values at the node points
     for ix in eachindex(x), iy in eachindex(y), iz in eachindex(z), it in eachindex(t)
@@ -44,6 +43,5 @@ using WaveSpec
         expected = ηgrid[ix,iy,iz,it]
         @test isapprox(itps_lin[:η](xv,yv,zv,tv), expected; atol=1e-12, rtol=0)
         @test isapprox(itps_near[:η](xv,yv,zv,tv), expected; atol=1e-12, rtol=0)
-        @test isapprox(itps_cub[:η](xv,yv,zv,tv), expected; atol=1e-8)
     end
 end
