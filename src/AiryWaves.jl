@@ -5,6 +5,7 @@ using ..SpectralSampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
+using Interpolations
 using ..ContinuousSpectrums: JONSWAP, RegularWave
 
 export AiryState, generate_sea, get_amplitude, get_random_phases
@@ -56,7 +57,7 @@ function AiryState(spectrum_model::Symbol, Hs::T, Tp::T,
     continuous_spectrum = if spectrum_model == :JONSWAP
         JONSWAP(Hs, Tp)
     elseif spectrum_model == :RegularWave
-        RegularWave(Hs, Tp)
+        error("Unsupported constructor for RegularWave. Please use AiryState(RegularWave(H, T), h) instead.")
     else
         error("Unsupported spectrum model")
     end
@@ -232,6 +233,49 @@ end
 
 function get_random_phases(state::AiryState)
     return 2π .* rand(get_seeded_rng(state.seed), state.nω, state.nθ) 
+end
+
+"""
+    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :u, :v, :w])
+
+Computes the sea fields on the provided regular grids and returns a NamedTuple
+of interpolation functions for each requested variable. Each interpolant is a
+callable taking (x, y, z, t) and returning the interpolated value.
+"""
+function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, z::AbstractVector{<:Real}, t::AbstractVector{<:Real}; vars = [:η, :u, :v, :w], interp::Symbol = :linear)
+    # Compute sea on the provided grid
+    res = generate_sea(state, x, y, z, t; vars = vars)
+    interp_dict = Dict{Symbol, Function}()
+    axes = (x, y, z, t)
+    for v in vars
+        if v in keys(res)
+            vals = res[v]
+            # Support several kernels via Interpolations.jl
+            if interp == :linear
+                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.Linear()))
+            elseif interp == :cubic
+                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.Cubic(Interpolations.Line())))
+            elseif interp == :nearest
+                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.NoInterp()))
+            else
+                itp = nothing
+            end
+
+            if itp !== nothing
+                function wrapped(xq::Real, yq::Real, zq::Real, tq::Real)
+                    xc = clamp(xq, first(x), last(x))
+                    yc = clamp(yq, first(y), last(y))
+                    zc = clamp(zq, first(z), last(z))
+                    tc = clamp(tq, first(t), last(t))
+                    return itp(xc, yc, zc, tc)
+                end
+                interp_dict[v] = wrapped
+            else
+                error("Unsupported interpolation method: $interp")
+            end
+        end
+    end
+    return (; interp_dict...)
 end
 
 end # module
