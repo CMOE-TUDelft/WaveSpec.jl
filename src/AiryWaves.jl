@@ -5,7 +5,7 @@ using ..SpectralSampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
-using ..ContinuousSpectrums: JONSWAP
+using ..ContinuousSpectrums: JONSWAP, RegularWave
 
 export AiryState, generate_sea, get_amplitude, get_random_phases
 
@@ -55,6 +55,8 @@ function AiryState(spectrum_model::Symbol, Hs::T, Tp::T,
     # 1. Create continuous spectrum model
     continuous_spectrum = if spectrum_model == :JONSWAP
         JONSWAP(Hs, Tp)
+    elseif spectrum_model == :RegularWave
+        RegularWave(Hs, Tp)
     else
         error("Unsupported spectrum model")
     end
