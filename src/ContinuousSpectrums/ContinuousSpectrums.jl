@@ -6,7 +6,7 @@ using ..Truncation
 using RecipesBase
 
 export AbstractSpectrum
-export JONSWAP, TMA, Bretschneider, Donelan, OchiHubble 
+export JONSWAP, TMA, Bretschneider, Donelan, OchiHubble, RegularWave
 export get_Hs, get_Tp, get_density, get_fmax, get_fmin
 export get_phi, compute_ochi_component
 export integrate, get_cumulative_energy
@@ -44,12 +44,14 @@ end
 
 # --- INCLUDE SPECIFIC SPECTRUM MODELS ---
 
+
 # Include the specific models
 include("JONSWAP.jl")
 include("TMA.jl")
 include("Bretschneider.jl")
 include("Donelan.jl")
 include("OchiHubble.jl")
+include("RegularWave.jl")
 
 
 # --- SPECTRAL RANGE ---

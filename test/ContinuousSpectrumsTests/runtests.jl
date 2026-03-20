@@ -10,6 +10,7 @@ using Test
     include("DonelanTests.jl")
     include("BretschneiderTests.jl")
     include("OchiHubbleTests.jl")
+    include("RegularWaveTests.jl")
 end
 
 # --- Integration Tests for all Spectra ---

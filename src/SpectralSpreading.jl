@@ -7,9 +7,9 @@ using RecipesBase
 
 export DiscreteSpectralSpreading
 export get_frequency, get_frequencies,
-       get_density, get_densities,
+       get_densities,
        get_amplitude, get_amplitudes 
-export get_moments, get_Hs, get_energies
+export get_moments, get_energies
 
 """
     DiscreteSpectralSpreading
