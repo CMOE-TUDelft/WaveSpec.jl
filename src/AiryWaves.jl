@@ -5,6 +5,7 @@ using ..SpectralSampling
 using ..SpectralSpreading
 using ..AngularSpreading
 using ..PhysicalConstants
+using Interpolations
 using ..ContinuousSpectrums: JONSWAP, RegularWave
 
 export AiryState, generate_sea, get_amplitude, get_random_phases
@@ -56,7 +57,7 @@ function AiryState(spectrum_model::Symbol, Hs::T, Tp::T,
     continuous_spectrum = if spectrum_model == :JONSWAP
         JONSWAP(Hs, Tp)
     elseif spectrum_model == :RegularWave
-        RegularWave(Hs, Tp)
+        error("Unsupported constructor for RegularWave. Please use AiryState(RegularWave(H, T), h) instead.")
     else
         error("Unsupported spectrum model")
     end
@@ -232,6 +233,104 @@ end
 
 function get_random_phases(state::AiryState)
     return 2π .* rand(get_seeded_rng(state.seed), state.nω, state.nθ) 
+end
+
+"""
+    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :u, :v, :w], interp=:linear)
+
+Computes the sea fields on the provided regular grids and returns a NamedTuple
+of interpolation functions for each requested variable. Each interpolant is a
+callable taking `(x, y, z, t)` and returning the interpolated value.
+
+Arguments
+- `state`: an `AiryState` produced by `AiryState(...)` or constructed manually.
+- `x, y, z, t`: regular 1D coordinate vectors used to compute the fields.
+- `vars`: which fields to compute, default `[:η, :u, :v, :w]`.
+- `interp`: interpolation kernel, `:linear` (default), `:cubic`, or `:nearest`.
+
+Examples
+
+```julia
+using WaveSpec
+
+# (1) Construct an AiryState (example uses a regular monochromatic wave)
+spec = WaveSpec.ContinuousSpectrums.RegularWave(1.0, 5.0)                      # H=1 m, T=5 s
+ds = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(spec)                # discrete spectrum
+spread = WaveSpec.AngularSpreading.DiscreteAngularSpreading(0.0)              # unidirectional
+as = WaveSpec.AiryWaves.AiryState(ds, spread, 50.0)                          # water depth 50 m
+
+# (2) Choose evaluation grid
+x = range(0.0, stop=10.0, length=11)
+y = [0.0]
+z = [0.0]
+t = 0.0:0.1:10.0
+
+# (3) Get interpolants (linear by default)
+itps = WaveSpec.AiryWaves.generate_interpolable_sea(as, collect(x), collect(y), collect(z), collect(t); vars=[:η])
+
+# (4) Evaluate η at an arbitrary point (not necessarily on the grid)
+η_val = itps[:η](1.23, 0.0, 0.0, 2.57)
+```
+
+"""
+function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, z::AbstractVector{<:Real}, t::AbstractVector{<:Real}; vars = [:η, :u, :v, :w], interp::Symbol = :linear)
+    # Compute sea on the provided grid
+    res = generate_sea(state, x, y, z, t; vars = vars)
+    interp_dict = Dict{Symbol, Function}()
+    axes = (x, y, z, t)
+    for v in vars
+        if v in keys(res)
+            vals = res[v]
+            # Ensure the computed array has the same dimensionality as the axes tuple
+            target_lens = (length(x), length(y), length(z), length(t))
+            cur_shape = size(vals)
+            # If the value array has fewer dims, add singleton dimensions at the end
+            if length(cur_shape) < 4
+                newshape = Tuple(vcat(collect(cur_shape), ones(Int, 4 - length(cur_shape))))
+                vals = reshape(vals, newshape)
+                cur_shape = size(vals)
+            end
+            # Repeat singleton dimensions to match the requested axes lengths
+            reps = ntuple(i -> cur_shape[i] == target_lens[i] ? 1 : target_lens[i], 4)
+            if any(r -> r != 1, reps)
+                vals = repeat(vals, reps...)
+            end
+            # Support several kernels via Interpolations.jl
+            if interp == :linear
+                itp = Interpolations.interpolate((x, y, z, t), vals, Interpolations.Gridded(Interpolations.Linear()))
+            elseif interp == :nearest
+                # Build a simple nearest-neighbor wrapper without Interpolations.jl
+                itp = nothing
+                local_vals = vals
+                function nearest_wrapper(xq::Real, yq::Real, zq::Real, tq::Real)
+                    # find nearest indices along each axis
+                    ix = findmin(abs.(x .- xq))[2]
+                    iy = findmin(abs.(y .- yq))[2]
+                    iz = findmin(abs.(z .- zq))[2]
+                    it = findmin(abs.(t .- tq))[2]
+                    return local_vals[ix, iy, iz, it]
+                end
+                interp_dict[v] = nearest_wrapper
+                continue
+            else
+                itp = nothing
+            end
+
+            if itp !== nothing
+                function wrapped(xq::Real, yq::Real, zq::Real, tq::Real)
+                    xc = clamp(xq, first(x), last(x))
+                    yc = clamp(yq, first(y), last(y))
+                    zc = clamp(zq, first(z), last(z))
+                    tc = clamp(tq, first(t), last(t))
+                    return itp(xc, yc, zc, tc)
+                end
+                interp_dict[v] = wrapped
+            else
+                error("Unsupported interpolation method: $interp")
+            end
+        end
+    end
+    return (; interp_dict...)
 end
 
 end # module
