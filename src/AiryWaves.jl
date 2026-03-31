@@ -130,21 +130,21 @@ These elements are combined to compute the sea surface elevation and velocity co
 """
     generate_sea(state::AiryState, x, y, z, t)
 
-The main evaluation engine. Computes η, u, v, w for a 4D grids (x, y, z, t).
+The main evaluation engine. Computes η, ϕ, u, v, w for a 4D grids (x, y, z, t).
 Everything is computed on-the-fly to minimize memory footprint.
 The trick to compute the series is to expand all items to 6 dimensional tensors 
 with dimensional structure 
                 T = (x, y, z, t, ω, θ)
 and then contract the last 2 dimensions (ω and θ) to sum the series components.
 """
-function generate_sea(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :u, :v, :w]) where {R<:Real}
+function generate_sea(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :ϕ, :u, :v, :w]) where {R<:Real}
 
     # Normalize input to a Vector of Symbols
     requested = vars isa Symbol ? [vars] : vars
 
     # Error check
     if isempty(requested)
-        throw(ArgumentError("No valid variables requested. Choose from :η, :u, :v, :w"))
+        throw(ArgumentError("No valid variables requested. Choose from :η, :ϕ, :u, :v, :w"))
     end
     
     # Initialize an empty dictionary to store results
@@ -179,13 +179,20 @@ function generate_sea(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{
         res[:η] = dropdims(sum( A .* cos.(ψ), dims=(5,6)), dims=(5,6))
     end
     
-    if :u in requested || :v in requested || :w in requested
+    if :ϕ in requested || :u in requested || :v in requested || :w in requested
         # Vertical Coefficients (Expanded to handle Z and k simultaneously)
         kh = state.k .* state.h  # (nω, )
         # Reshape k and kh for Dim 5 (ω)
         k_reshaped  = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
         kh_reshaped = reshape(kh, 1, 1, 1, 1, state.nω, 1)
         h = state.h 
+    end
+
+    if :ϕ in requested
+        coeff_ϕ = ifelse.(kh_reshaped .< 20.0,
+                    g ./ ω .* cosh.(k_reshaped .* (Z .+ h)) ./ cosh.(kh_reshaped),
+                    g ./ ω .* exp.(k_reshaped .* Z))
+        res[:ϕ] = dropdims(sum(A .* coeff_ϕ .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
     end
 
     if :u in requested || :v in requested 
@@ -236,7 +243,7 @@ function get_random_phases(state::AiryState)
 end
 
 """
-    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :u, :v, :w], interp=:linear)
+    generate_interpolable_sea(state::AiryState, x, y, z, t; vars=[:η, :ϕ, :u, :v, :w], interp=:linear)
 
 Computes the sea fields on the provided regular grids and returns a NamedTuple
 of interpolation functions for each requested variable. Each interpolant is a
@@ -245,7 +252,7 @@ callable taking `(x, y, z, t)` and returning the interpolated value.
 Arguments
 - `state`: an `AiryState` produced by `AiryState(...)` or constructed manually.
 - `x, y, z, t`: regular 1D coordinate vectors used to compute the fields.
-- `vars`: which fields to compute, default `[:η, :u, :v, :w]`.
+- `vars`: which fields to compute, default `[:η, :ϕ, :u, :v, :w]`.
 - `interp`: interpolation kernel, `:linear` (default), `:cubic`, or `:nearest`.
 
 Examples
@@ -273,7 +280,7 @@ itps = WaveSpec.AiryWaves.generate_interpolable_sea(as, collect(x), collect(y), 
 ```
 
 """
-function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, z::AbstractVector{<:Real}, t::AbstractVector{<:Real}; vars = [:η, :u, :v, :w], interp::Symbol = :linear)
+function generate_interpolable_sea(state::AiryState, x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, z::AbstractVector{<:Real}, t::AbstractVector{<:Real}; vars = [:η, :ϕ, :u, :v, :w], interp::Symbol = :linear)
     # Compute sea on the provided grid
     res = generate_sea(state, x, y, z, t; vars = vars)
     interp_dict = Dict{Symbol, Function}()
