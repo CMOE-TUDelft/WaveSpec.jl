@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 
 
 ### Changed
-- 
+- `WaveSpec.AiryWaves.generate_sea` and `generate_interpolable_sea` can now export the velocity potential field with `vars=[:ϕ]`. Since [PR#36](https://github.com/CMOE-TUDelft/WaveSpec.jl/pull/36).
 
 ### Fixed
 - 
