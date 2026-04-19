@@ -26,7 +26,7 @@ jobs:
           - x64
     steps:
       - uses: actions/checkout@v6                     # Fetches the code from the Git repository.
-      - uses: julia-actions/setup-julia@v2            # Installs the specific version from the matrix 
+      - uses: julia-actions/setup-julia@v3            # Installs the specific version from the matrix 
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
@@ -44,7 +44,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6                     # Fetches the code from the Git repository.              
-      - uses: julia-actions/setup-julia@v2            # Installs the latest stable Julia version    
+      - uses: julia-actions/setup-julia@v3            # Installs the latest stable Julia version    
         with:
           version: '1'                                # Use the latest stable Julia 1.x version
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
