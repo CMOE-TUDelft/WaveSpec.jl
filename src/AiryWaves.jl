@@ -81,7 +81,7 @@ end
 
 function change_seed!(state::AiryState, new_seed::Int)
     if new_seed < 0 throw(ArgumentError("new_seed must be non-negative (received $new_seed).")) end
-    return AiryState(state.spec, state.spread, state.nω, state.nθ, state.ω, state.k, state.θ, state.h, new_seed)
+    return AiryState(state.spectrum, state.spread, state.nω, state.nθ, state.ω, state.k, state.θ, state.h, new_seed)
 end
 
 function change_seed!(state::AiryState)

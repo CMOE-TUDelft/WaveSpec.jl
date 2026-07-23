@@ -45,3 +45,32 @@ using WaveSpec
         @test isapprox(itps_near[:η](xv,yv,zv,tv), expected; atol=1e-12, rtol=0)
     end
 end
+
+@testset "AiryWaves: change_seed!" begin
+    # Regression for the state.spec/state.spectrum field bug: change_seed! must
+    # return a working AiryState with the requested seed.
+    spec = WaveSpec.ContinuousSpectrums.JONSWAP(1.0, 8.0)
+    ds = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(
+             spec, WaveSpec.SpectralSampling.UniformSampling(), 0.05, 0.5, 11; mess=false)
+    spread = WaveSpec.AngularSpreading.DiscreteAngularSpreading(0.0)
+    as = WaveSpec.AiryWaves.AiryState(ds, spread, 50.0)
+
+    as1 = WaveSpec.AiryWaves.change_seed!(as, 12345)
+    @test as1 isa WaveSpec.AiryWaves.AiryState
+    @test as1.seed == 12345
+    # spectrum metadata is carried over unchanged
+    @test as1.nω == as.nω && as1.ω == as.ω && as1.k == as.k && as1.h == as.h
+
+    # phases: deterministic per seed, different across seeds
+    as2 = WaveSpec.AiryWaves.change_seed!(as, 12345)
+    as3 = WaveSpec.AiryWaves.change_seed!(as, 54321)
+    @test WaveSpec.AiryWaves.get_random_phases(as1) == WaveSpec.AiryWaves.get_random_phases(as2)
+    @test WaveSpec.AiryWaves.get_random_phases(as1) != WaveSpec.AiryWaves.get_random_phases(as3)
+
+    # negative seeds are rejected
+    @test_throws ArgumentError WaveSpec.AiryWaves.change_seed!(as, -1)
+
+    # the no-argument variant draws a valid random seed
+    as4 = WaveSpec.AiryWaves.change_seed!(as)
+    @test as4 isa WaveSpec.AiryWaves.AiryState && as4.seed >= 0
+end
