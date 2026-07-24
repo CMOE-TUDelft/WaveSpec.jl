@@ -1,7 +1,7 @@
 name = "WaveSpec"
 uuid = "908d4cf6-a6c0-449c-92e4-852c8f288332"
 authors = ["Shagun Agarwal shagun.1994@gmail.com", "Oriol Colomes <J.O.ColomesGene@tudelft.nl>", "Pau Manyer <p.manyer@tudelft.nl>"]
-version = "0.3.1"
+version = "0.3.2"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
