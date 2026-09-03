@@ -25,7 +25,7 @@ jobs:
         arch:                                         #   - Architectures to test.
           - x64
     steps:
-      - uses: actions/checkout@v6                     # Fetches the code from the Git repository.
+      - uses: actions/checkout@v7                     # Fetches the code from the Git repository.
       - uses: julia-actions/setup-julia@v3            # Installs the specific version from the matrix 
         with:
           version: ${{ matrix.version }}
@@ -34,7 +34,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1         # Builds the package
       - uses: julia-actions/julia-runtest@v1          # Executes the code in test/runtests.jl. This is the core check.
       - uses: julia-actions/julia-processcoverage@v1  # Generates code coverage data
-      - uses: codecov/codecov-action@v6               # Uploads the code coverage report (lcov.info) to an external service like 
+      - uses: codecov/codecov-action@v7               # Uploads the code coverage report (lcov.info) to an external service like 
         with:
           files: lcov.info
   docs:
@@ -43,7 +43,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6                     # Fetches the code from the Git repository.              
+      - uses: actions/checkout@v7                     # Fetches the code from the Git repository.              
       - uses: julia-actions/setup-julia@v3            # Installs the latest stable Julia version    
         with:
           version: '1'                                # Use the latest stable Julia 1.x version
