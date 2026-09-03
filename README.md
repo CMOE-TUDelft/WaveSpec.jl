@@ -100,7 +100,7 @@ sea_state = WaveSpec.AiryWaves.AiryState(
 )
 
 # 5. Access wave components
-# sea_state.ω (frequencies), sea_state.k (wavenumbers), sea_state.Î¸ (angles)
+# sea_state.ω (frequencies), sea_state.k (wavenumbers), sea_state.θ¸ (angles)
 ```
 
 ## Documentation
