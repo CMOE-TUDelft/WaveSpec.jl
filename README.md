@@ -85,8 +85,8 @@ discrete_spec = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(
 angle_dist = WaveSpec.AngularSpreading.CosinePowerDistribution(0.0, 2.0)
 discrete_angle = WaveSpec.AngularSpreading.DiscreteAngularSpreading(
     angle_dist,
-    -Ï€/2,
-    Ï€/2,
+    -π/2,
+    π/2,
     36  # 36 discrete angles
 )
 
