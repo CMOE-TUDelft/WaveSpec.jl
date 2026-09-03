@@ -63,28 +63,41 @@ using WaveSpec
 # 1. Define a JONSWAP spectrum
 Hs = 2.5  # Significant wave height [m]
 Tp = 8.0  # Peak period [s]
-spec = JONSWAP(Hs, Tp)
+spec = WaveSpec.ContinuousSpectrums.JONSWAP(
+    Hs,
+    Tp
+)
 
 # 2. Discretize the spectrum
 # DiscreteSpectralSpreading(shape, strategy, fmin, fmax, nf; domain=Frequency)
-discrete_spec = DiscreteSpectralSpreading(
+discrete_spec = WaveSpec.SpectralSpreading.DiscreteSpectralSpreading(
     spec,
-    LogSampling(),         # Sampling strategy
-    0.05,                  # fmin [Hz]
-    1.0,                   # fmax [Hz]
-    50;                    # Number of frequencies
-    domain = Frequency     # Sampling domain
+    WaveSpec.SpectralSampling.LogSampling(),         # Sampling strategy
+    0.05,                                            # fmin [Hz]
+    1.0,                                             # fmax [Hz]
+    50;                                              # Number of frequencies
+    domain = WaveSpec.SpectralSampling.Frequency     # Sampling domain
 )
 
 # 3. Define Angular Spreading
-# DiscreteAngularSpreading(dist::UnivariateDistribution, a::Real, b::Real, nθ::Int; units=:radians)
-# Cosine-Power distribution centered at 0 radians with power exponent 2, truncated between -π/2 and π/2
-angle_dist = CosinePowerDistribution(0.0, 2.0)
-discrete_angle = DiscreteAngularSpreading(angle_dist, -π/2, π/2, 36) # 36 discrete angles
+# DiscreteAngularSpreading(dist::UnivariateDistribution, a::Real, b::Real, nÎ¸::Int; units=:radians)
+# Cosine-Power distribution centered at 0 radians with power exponent 2, truncated between -Ï€/2 and Ï€/2
+angle_dist = WaveSpec.AngularSpreading.CosinePowerDistribution(0.0, 2.0)
+discrete_angle = WaveSpec.AngularSpreading.DiscreteAngularSpreading(
+    angle_dist,
+    -π/2,
+    π/2,
+    36  # 36 discrete angles
+)
+
 
 # 4. Generate the Sea State
 depth = 50.0 # Water depth [m]
-sea_state = AiryState(discrete_spec, discrete_angle, depth)
+sea_state = WaveSpec.AiryWaves.AiryState(
+  discrete_spec,
+  discrete_angle,
+  depth
+)
 
 # 5. Access wave components
 # sea_state.ω (frequencies), sea_state.k (wavenumbers), sea_state.θ (angles)
