@@ -100,7 +100,7 @@ sea_state = WaveSpec.AiryWaves.AiryState(
 )
 
 # 5. Access wave components
-# sea_state.Ï‰ (frequencies), sea_state.k (wavenumbers), sea_state.Î¸ (angles)
+# sea_state.ω (frequencies), sea_state.k (wavenumbers), sea_state.Î¸ (angles)
 ```
 
 ## Documentation
@@ -109,5 +109,5 @@ For full documentation, please visit the [documentation website](https://CMOE-TU
 
 ## Contact
 
-Please contact the main developers [Shagun Agarwal](https://shagun751.github.io/), [Pau Manyer]() or [Oriol ColomÃ©s](https://www.tudelft.nl/en/staff/j.o.colomesgene/?cHash=d85db1dfc98f5e255324852d31948ede) for further questions.
+Please contact the main developers [Shagun Agarwal](https://shagun751.github.io/), [Pau Manyer]() or [Oriol Colomés](https://www.tudelft.nl/en/staff/j.o.colomesgene/?cHash=d85db1dfc98f5e255324852d31948ede) for further questions.
 
