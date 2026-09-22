@@ -1,14 +1,22 @@
 using ..AiryWaves
 
-export AiryRealization, realize
+export AiryRealization, realize, evaluate_eta
 
 """
     AiryRealization
 
-Persistent realization of the discrete Airy-wave components.
+A realized Airy-wave field.
 
-This is the first step toward matrix-free wave-field evaluation: the
-frequency-direction pair `(i,j)` is flattened into one component index.
+Unlike `AiryState`, which stores the spectral and directional
+discretization together with a random seed, an `AiryRealization`
+stores the fully materialized wave components:
+
+    (ω, kx, ky, amplitude, phase)
+
+and therefore represents one deterministic realization of the sea state.
+
+Two realizations generated from the same `AiryState` will be identical
+provided the same random seed is used.
 """
 struct AiryRealization{T<:AbstractFloat}
     components::WaveComponents{T}
@@ -45,4 +53,38 @@ function realize(state::AiryWaves.AiryState)
     )
 
     return AiryRealization(components, k, state.h)
+end
+
+"""
+    evaluate_eta(realization, x, y, t)
+
+Evaluate free-surface elevation η at a single point and time using a
+precomputed Airy realization.
+
+The implementation is intentionally component-wise and allocation-free.
+"""
+function evaluate_eta(
+    realization::AiryRealization{T},
+    x::Real,
+    y::Real,
+    t::Real,
+) where {T}
+
+    comps = realization.components
+
+    η = zero(T)
+
+    @inbounds @simd for n in eachindex(comps.ω)
+
+        ψ =
+            comps.kx[n] * x +
+            comps.ky[n] * y -
+            comps.ω[n] * t +
+            comps.phase[n]
+
+        η += comps.amplitude[n] * cos(ψ)
+
+    end
+
+    return η
 end
