@@ -11,4 +11,6 @@ using WaveSpec
 
 @time @testset "Airy Waves" begin include("AiryWavesTests/AiryStateTests.jl") end
 
+@time @testset "Airy Realization" begin include("AiryWavesTests/AiryRealizationTests.jl") end
+
 end # module

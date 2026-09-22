@@ -17,8 +17,14 @@ include("SpectralSpreading.jl")
 # Include Angular Spreading module
 include("AngularSpreading/AngularSpreading.jl")
 
-# Include the Physics/Synthesis module 
-include("AiryWaves.jl")
+# Include the wave-component representation
+include("WaveComponents.jl")
+
+# Include the Physics/Synthesis module
+ include("AiryWaves.jl")
+
+# Include persistent Airy-wave realizations
+include("AiryRealization.jl")
 
 # Include signal generation and treatment tools module
 include("Utils/Signal.jl")
