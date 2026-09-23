@@ -43,12 +43,12 @@ using WaveSpec
                 vars=[:η,:ϕ,:u,:v,:w]
             )
 
-        @test WaveSpec.evaluate_eta(
+        @test WaveSpec.evaluate_η(
             realization,
             x,y,t
         ) ≈ ref.η[1]
 
-        @test WaveSpec.evaluate_phi(
+        @test WaveSpec.evaluate_ϕ(
             realization,
             x,y,z,t
         ) ≈ ref.ϕ[1]
@@ -96,7 +96,7 @@ end
 
 end
 
-@testset "evaluate_eta regression" begin
+@testset "evaluate_η regression" begin
 
     spec = WaveSpec.ContinuousSpectrums.JONSWAP(
         1.0,
@@ -150,7 +150,7 @@ end
         η_old = sea[:η][1]
 
         η_new =
-            WaveSpec.evaluate_eta(
+            WaveSpec.evaluate_η(
                 realization,
                 x,
                 y,
@@ -161,7 +161,7 @@ end
     end
 
     η1 =
-        WaveSpec.evaluate_eta(
+        WaveSpec.evaluate_η(
             realization,
             1.2,
             3.4,
@@ -169,7 +169,7 @@ end
         )
 
     η2 =
-        WaveSpec.evaluate_eta(
+        WaveSpec.evaluate_η(
             realization,
             1.2,
             3.4,

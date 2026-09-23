@@ -20,7 +20,7 @@ realization = realize(state)
 The realization can then be evaluated at arbitrary points.
 
 ```julia
-η = evaluate_eta(realization, x, y, t)
+η = evaluate_η(realization, x, y, t)
 ```
 
 This representation is useful when repeated evaluations of the same
