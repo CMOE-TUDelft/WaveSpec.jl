@@ -1,6 +1,6 @@
 using ..AiryWaves
 
-export AiryRealization, realize, evaluate_eta
+export AiryRealization, realize
 
 """
     AiryRealization
@@ -55,36 +55,3 @@ function realize(state::AiryWaves.AiryState)
     return AiryRealization(components, k, state.h)
 end
 
-"""
-    evaluate_eta(realization, x, y, t)
-
-Evaluate free-surface elevation η at a single point and time using a
-precomputed Airy realization.
-
-The implementation is intentionally component-wise and allocation-free.
-"""
-function evaluate_eta(
-    realization::AiryRealization{T},
-    x::Real,
-    y::Real,
-    t::Real,
-) where {T}
-
-    comps = realization.components
-
-    η = zero(T)
-
-    @inbounds @simd for n in eachindex(comps.ω)
-
-        ψ =
-            comps.kx[n] * x +
-            comps.ky[n] * y -
-            comps.ω[n] * t +
-            comps.phase[n]
-
-        η += comps.amplitude[n] * cos(ψ)
-
-    end
-
-    return η
-end
