@@ -19,6 +19,15 @@ and temporal coordinates.
     comps.phase[n]
 end
 
+function _check_lengths(output::AbstractVector, arrays::AbstractVector...)
+  n = length(output)
+  for arr in arrays
+    if length(arr) != n
+      throw(DimensionMismatch("All input arrays must have the same length"))
+    end
+  end
+end
+
 """
     evaluate_ϕ(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
 
@@ -169,13 +178,23 @@ at z = 0. The formula for the free-surface elevation η is given by:
 
 The implementation is intentionally component-wise and allocation-free.
 """
-function evaluate_η( realization::AiryRealization{T}, x::Real, y::Real, t::Real) where {T}
-
-    comps = realization.components
+function evaluate_η(realization::AiryRealization{T}, x::Real, y::Real, t::Real) where {T}
     η = zero(T)
-    @inbounds @simd for i in eachindex(comps.ω)
-        ψ = _phase(comps, i, x, y, t)
-        η += comps.amplitude[i] * cos(ψ)
+    components = realization.components
+    @inbounds @simd for i in eachindex(components.ω)
+        ψ = _phase(components, i, x, y, t)
+        η += components.amplitude[i] * cos(ψ)
+    end
+    return η
+end
+
+function evaluate_η!(η::AbstractVector{T}, realization::AiryRealization{T}, 
+                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
+                     t::AbstractVector{<:Real}) where {T}
+    _check_lengths(η, x, y, t)
+    @inbounds Threads.@threads for j in eachindex(η)
+      xj = x[j]; yj = y[j]; tj = t[j]
+      η[j] = evaluate_η(realization, xj, yj, tj)
     end
     return η
 end
