@@ -1,10 +1,9 @@
-using .PhysicalConstants: g
-
 export evaluate_ϕ
 export evaluate_u
 export evaluate_v
 export evaluate_w
 export evaluate_η
+export evaluate_fields
 
 """
     _phase(comps::WaveComponents, n::Int, x::Real, y::Real, t::Real)
@@ -19,13 +18,37 @@ and temporal coordinates.
     comps.phase[n]
 end
 
-function _check_lengths(output::AbstractVector, arrays::AbstractVector...)
-  n = length(output)
-  for arr in arrays
-    if length(arr) != n
-      throw(DimensionMismatch("All input arrays must have the same length"))
+"""
+    _vertical_profiles(k, e2kh, z)
+
+Return `(C, S)` with `C = e^{kz} + e^{-k(z+2h)}` and `S = e^{kz} - e^{-k(z+2h)}`,
+which are `2e^{-kh} cosh(k(z+h))` and `2e^{-kh} sinh(k(z+h))`. Divided by the
+per-component `1 ± e^{-2kh}` factors stored in `AiryRealization`, they give the
+exact hyperbolic depth ratios without overflowing for large `kh`, so no
+shallow/deep-water branch is needed.
+
+`e^{-k(z+2h)}` is computed as `e2kh / e^{kz}`, so only one `exp` is needed per
+component. When both underflow to zero (very deep water near the bed) the term
+is set to zero instead of `0/0`.
+"""
+@inline function _vertical_profiles(k, e2kh, z)
+    e⁺ = exp(k * z)
+    e⁻ = ifelse(iszero(e⁺), zero(e⁺), e2kh / e⁺)
+    return e⁺ + e⁻, e⁺ - e⁻
+end
+
+# Accumulator type: promotes the realization precision with the coordinates.
+@inline _acctype(::Type{T}, coords::Real...) where {T} = float(promote_type(T, map(typeof, coords)...))
+
+# Threaded point-wise driver shared by all in-place evaluators. `eachindex`
+# checks that all arrays share the same axes, which makes `@inbounds` safe.
+function _pointwise!(kernel::F, out::AbstractVector, realization::AiryRealization,
+                     coords::AbstractVector...) where {F}
+    idx = eachindex(out, coords...)
+    Threads.@threads for j in idx
+        @inbounds out[j] = kernel(realization, map(c -> (@inbounds c[j]), coords)...)
     end
-  end
+    return out
 end
 
 """
@@ -40,38 +63,21 @@ precomputed Airy realization. The formula for the velocity potential ϕ is given
 
 The implementation is intentionally component-wise and allocation-free.
 """
-function evaluate_ϕ(realization::AiryRealization{T}, x::Real, y::Real, 
+function evaluate_ϕ(realization::AiryRealization{T}, x::Real, y::Real,
                     z::Real, t::Real) where {T}
-
     comps = realization.components
-    h = realization.h
-
-    ϕ = zero(T)
+    ϕ = zero(_acctype(T, x, y, z, t))
     @inbounds @simd for i in eachindex(comps.ω)
-      k = realization.k[i]
-      ψ = _phase(comps, i, x, y, t)
-      kh = k * h
-      coeff =
-        if kh < 20.0
-            g / comps.ω[i] * cosh(k * (z + h)) / cosh(kh)
-        else
-            g / comps.ω[i] * exp(k * z)
-        end
-      ϕ += comps.amplitude[i] * coeff * sin(ψ)
+        C, _ = _vertical_profiles(realization.k[i], realization.e2kh[i], z)
+        ϕ += comps.amplitude[i] * realization.cϕ[i] * C * sin(_phase(comps, i, x, y, t))
     end
     return ϕ
 end
 
-function evaluate_ϕ!(ϕ::AbstractVector{T}, realization::AiryRealization{T}, 
-                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
-                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
-    _check_lengths(ϕ, x, y, z, t)
-    @inbounds Threads.@threads for j in eachindex(ϕ)
-      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
-      ϕ[j] = evaluate_ϕ(realization, xj, yj, zj, tj)
-    end
-    return ϕ
-end
+evaluate_ϕ!(ϕ::AbstractVector, realization::AiryRealization,
+            x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+            z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) =
+    _pointwise!(evaluate_ϕ, ϕ, realization, x, y, z, t)
 
 """
     evaluate_u(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
@@ -87,37 +93,19 @@ The implementation is intentionally component-wise and allocation-free.
 """
 function evaluate_u(realization::AiryRealization{T}, x::Real, y::Real,
                     z::Real, t::Real) where {T}
-
     comps = realization.components
-    h = realization.h
-    u = zero(T)
-
+    u = zero(_acctype(T, x, y, z, t))
     @inbounds @simd for i in eachindex(comps.ω)
-      k = realization.k[i]
-      ψ = _phase(comps, i, x, y, t)
-      kh = k * h
-      coeff =
-        if kh < 20.0
-            cosh(k * (z + h)) / sinh(kh)
-        else
-            exp(k * z)
-        end
-      cosθ = comps.kx[i] / k
-      u += comps.amplitude[i] * comps.ω[i] * cosθ * coeff * cos(ψ)
+        C, _ = _vertical_profiles(realization.k[i], realization.e2kh[i], z)
+        u += comps.amplitude[i] * realization.cu[i] * C * cos(_phase(comps, i, x, y, t))
     end
     return u
 end
 
-function evaluate_u!(u::AbstractVector{T}, realization::AiryRealization{T}, 
-                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
-                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
-    _check_lengths(u, x, y, z, t)
-    @inbounds Threads.@threads for j in eachindex(u)
-      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
-      u[j] = evaluate_u(realization, xj, yj, zj, tj)
-    end
-    return u
-end
+evaluate_u!(u::AbstractVector, realization::AiryRealization,
+            x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+            z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) =
+    _pointwise!(evaluate_u, u, realization, x, y, z, t)
 
 """
     evaluate_v(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
@@ -133,37 +121,19 @@ The implementation is intentionally component-wise and allocation-free.
 """
 function evaluate_v(realization::AiryRealization{T}, x::Real, y::Real,
                     z::Real, t::Real) where {T}
-
     comps = realization.components
-    h = realization.h
-    v = zero(T)
-
+    v = zero(_acctype(T, x, y, z, t))
     @inbounds @simd for i in eachindex(comps.ω)
-      k = realization.k[i]
-      ψ = _phase(comps, i, x, y, t)
-      kh = k * h
-      coeff =
-        if kh < 20.0
-            cosh(k * (z + h)) / sinh(kh)
-        else
-            exp(k * z)
-        end
-      sinθ = comps.ky[i] / k
-      v += comps.amplitude[i] * comps.ω[i] * sinθ * coeff * cos(ψ)
+        C, _ = _vertical_profiles(realization.k[i], realization.e2kh[i], z)
+        v += comps.amplitude[i] * realization.cv[i] * C * cos(_phase(comps, i, x, y, t))
     end
     return v
 end
 
-function evaluate_v!(v::AbstractVector{T}, realization::AiryRealization{T}, 
-                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
-                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
-    _check_lengths(v, x, y, z, t)
-    @inbounds Threads.@threads for j in eachindex(v)
-      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
-      v[j] = evaluate_v(realization, xj, yj, zj, tj)
-    end
-    return v
-end
+evaluate_v!(v::AbstractVector, realization::AiryRealization,
+            x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+            z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) =
+    _pointwise!(evaluate_v, v, realization, x, y, z, t)
 
 """
     evaluate_w(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
@@ -177,37 +147,21 @@ w(x, y, z, t) = \\sum_{i} A_i \\omega_i \\frac{\\sinh(k_i (z + h))}{\\sinh(k_i h
 
 The implementation is intentionally component-wise and allocation-free.
 """
-function evaluate_w(realization::AiryRealization{T}, x::Real, y::Real, 
+function evaluate_w(realization::AiryRealization{T}, x::Real, y::Real,
                     z::Real, t::Real) where {T}
-
     comps = realization.components
-    h = realization.h
-    w = zero(T)
+    w = zero(_acctype(T, x, y, z, t))
     @inbounds @simd for i in eachindex(comps.ω)
-      k = realization.k[i]
-      ψ = _phase(comps, i, x, y, t)
-      kh = k * h
-      coeff =
-        if kh < 20.0
-            sinh(k * (z + h)) / sinh(kh)
-        else
-            exp(k * z)
-        end
-      w += comps.amplitude[i] * comps.ω[i] * coeff * sin(ψ)
+        _, S = _vertical_profiles(realization.k[i], realization.e2kh[i], z)
+        w += comps.amplitude[i] * realization.cw[i] * S * sin(_phase(comps, i, x, y, t))
     end
     return w
 end
 
-function evaluate_w!(w::AbstractVector{T}, realization::AiryRealization{T}, 
-                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
-                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
-    _check_lengths(w, x, y, z, t)
-    @inbounds Threads.@threads for j in eachindex(w)
-      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
-      w[j] = evaluate_w(realization, xj, yj, zj, tj)
-    end
-    return w
-end
+evaluate_w!(w::AbstractVector, realization::AiryRealization,
+            x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+            z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) =
+    _pointwise!(evaluate_w, w, realization, x, y, z, t)
 
 """
     evaluate_η(realization, x, y, t)
@@ -223,22 +177,117 @@ at z = 0. The formula for the free-surface elevation η is given by:
 The implementation is intentionally component-wise and allocation-free.
 """
 function evaluate_η(realization::AiryRealization{T}, x::Real, y::Real, t::Real) where {T}
-    η = zero(T)
     components = realization.components
+    η = zero(_acctype(T, x, y, t))
     @inbounds @simd for i in eachindex(components.ω)
-        ψ = _phase(components, i, x, y, t)
-        η += components.amplitude[i] * cos(ψ)
+        η += components.amplitude[i] * cos(_phase(components, i, x, y, t))
     end
     return η
 end
 
-function evaluate_η!(η::AbstractVector{T}, realization::AiryRealization{T}, 
-                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
-                     t::AbstractVector{<:Real}) where {T}
-    _check_lengths(η, x, y, t)
-    @inbounds Threads.@threads for j in eachindex(η)
-      xj = x[j]; yj = y[j]; tj = t[j]
-      η[j] = evaluate_η(realization, xj, yj, tj)
+evaluate_η!(η::AbstractVector, realization::AiryRealization,
+            x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+            t::AbstractVector{<:Real}) =
+    _pointwise!(evaluate_η, η, realization, x, y, t)
+
+"""
+    evaluate_fields(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
+
+Evaluate all Airy fields at a single point and time in one pass over the
+components and return them as a `NamedTuple` `(η, ϕ, u, v, w)`. `η` is the
+free-surface elevation (independent of `z`); `ϕ, u, v, w` are evaluated at `z`.
+
+Each component's phase, `sincos` and vertical profile are computed once and
+shared by the five fields, so this costs about as much as a single
+`evaluate_ϕ` call instead of five separate evaluations.
+"""
+function evaluate_fields(realization::AiryRealization{T}, x::Real, y::Real,
+                         z::Real, t::Real) where {T}
+    comps = realization.components
+    R = _acctype(T, x, y, z, t)
+    η = ϕ = u = v = w = zero(R)
+    @inbounds @simd for i in eachindex(comps.ω)
+        s, c = sincos(_phase(comps, i, x, y, t))
+        C, S = _vertical_profiles(realization.k[i], realization.e2kh[i], z)
+        a = comps.amplitude[i]
+        aCc = a * C * c
+        η += a * c
+        ϕ += a * realization.cϕ[i] * C * s
+        u += realization.cu[i] * aCc
+        v += realization.cv[i] * aCc
+        w += a * realization.cw[i] * S * s
     end
-    return η
+    return (η = η, ϕ = ϕ, u = u, v = v, w = w)
+end
+
+"""
+    evaluate_fields!(η, ϕ, u, v, w, realization, x, y, z, t)
+
+In-place, multi-threaded version of [`evaluate_fields`](@ref) over the points
+`(x[j], y[j], z[j], t[j])`. All arrays must share the same axes.
+"""
+function evaluate_fields!(η::AbstractVector, ϕ::AbstractVector, u::AbstractVector,
+                          v::AbstractVector, w::AbstractVector, realization::AiryRealization,
+                          x::AbstractVector{<:Real}, y::AbstractVector{<:Real},
+                          z::AbstractVector{<:Real}, t::AbstractVector{<:Real})
+    idx = eachindex(η, ϕ, u, v, w, x, y, z, t)
+    Threads.@threads for j in idx
+        @inbounds begin
+            f = evaluate_fields(realization, x[j], y[j], z[j], t[j])
+            η[j] = f.η; ϕ[j] = f.ϕ; u[j] = f.u; v[j] = f.v; w[j] = f.w
+        end
+    end
+    return (η = η, ϕ = ϕ, u = u, v = v, w = w)
+end
+
+# --- Gridded evaluation -------------------------------------------------------
+
+# Method of `AiryWaves.generate_sea` (documented there). It lives here because it
+# needs `realize` and the kernels above, which are defined after `AiryWaves`.
+function AiryWaves.generate_sea(state::AiryWaves.AiryState, x::AbstractArray{<:Real},
+                                y::AbstractArray{<:Real}, z::AbstractArray{<:Real},
+                                t::AbstractArray{<:Real}; vars = [:η, :ϕ, :u, :v, :w])
+    requested = vars isa Symbol ? (vars,) : Tuple(vars)
+    if isempty(requested)
+        throw(ArgumentError("No valid variables requested. Choose from :η, :ϕ, :u, :v, :w"))
+    end
+    realization = realize(state)
+    res = _generate_sea(realization, vec(x), vec(y), vec(z), vec(t), requested)
+    return (; (v => res[v] for v in unique(requested) if haskey(res, v))...)
+end
+
+function _generate_sea(realization::AiryRealization{T}, x::AbstractVector, y::AbstractVector,
+                       z::AbstractVector, t::AbstractVector, requested) where {T}
+    nx, ny, nz, nt = length(x), length(y), length(z), length(t)
+    res = Dict{Symbol, Array{T, 4}}()
+
+    if :η in requested
+        η = Array{T, 4}(undef, nx, ny, 1, nt)
+        Threads.@threads for I in CartesianIndices(η)
+            ix, iy, _, it = Tuple(I)
+            @inbounds η[I] = evaluate_η(realization, x[ix], y[iy], t[it])
+        end
+        res[:η] = η
+    end
+
+    kinematic = (:ϕ, :u, :v, :w)
+    wanted = map(in(requested), kinematic)
+    if any(wanted)
+        # Unrequested fields get an empty placeholder so the loop stays type-stable.
+        ϕ, u, v, w = map(b -> b ? Array{T, 4}(undef, nx, ny, nz, nt) : Array{T, 4}(undef, 0, 0, 0, 0), wanted)
+        Threads.@threads for I in CartesianIndices((nx, ny, nz, nt))
+            ix, iy, iz, it = Tuple(I)
+            @inbounds begin
+                f = evaluate_fields(realization, x[ix], y[iy], z[iz], t[it])
+                wanted[1] && (ϕ[I] = f.ϕ)
+                wanted[2] && (u[I] = f.u)
+                wanted[3] && (v[I] = f.v)
+                wanted[4] && (w[I] = f.w)
+            end
+        end
+        for (name, arr, b) in zip(kinematic, (ϕ, u, v, w), wanted)
+            b && (res[name] = arr)
+        end
+    end
+    return res
 end

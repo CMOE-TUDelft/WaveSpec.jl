@@ -120,7 +120,7 @@ end
   @testset "single component" begin
   
     components = WS.WaveComponents([2.0],[3.0],[4.0],[2.5],[0.3])
-    realization = WS.AiryRealization(components, [0.0], 0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
     
     x = [0.0, 1.0, 2.0]
     y = [0.0, 0.5, 1.0]
@@ -142,7 +142,7 @@ end
         [1.0, 0.5, 0.25],
         [0.0, 0.2, -0.4],
       )
-    realization = WS.AiryRealization(components,[0.0],0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
   
     x = collect(range(0.0, 2.0; length = 17))
     y = collect(range(-1.0, 1.0; length = 17))
@@ -164,7 +164,7 @@ end
       [0.0, 2.0, 0.0],
       [0.0, 0.0, 0.0],
     )
-    realization = WS.AiryRealization(components,[0.0],0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
   
     x = [0.0, 1.0, 2.0]
     y = [0.0, 0.0, 0.0]
@@ -180,7 +180,7 @@ end
   @testset "empty evaluation set" begin
   
     components = WS.WaveComponents([1.0],[1.0],[0.0],[1.0],[0.0])
-    realization = WS.AiryRealization(components, [0.0], 0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
 
     x = Float64[]
     y = Float64[]
@@ -195,7 +195,7 @@ end
   @testset "output is overwritten" begin
           
     components = WS.WaveComponents([1.0],[1.0],[0.0],[2.0],[0.0])
-    realization = WS.AiryRealization(components, [0.0], 0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
           
     x = [0.0, 1.0, 2.0]
     y = zeros(3)
@@ -210,7 +210,7 @@ end
   @testset "length validation" begin
   
     components = WS.WaveComponents([1.0],[1.0],[0.0],[1.0],[0.0])
-    realization = WS.AiryRealization(components, [0.0], 0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
             
     η = zeros(3)
     x = zeros(3)
@@ -230,7 +230,7 @@ end
       Float32[1.0, 0.5],
       Float32[0.1, -0.2],
     )
-    realization = WS.AiryRealization(components,Float32[0.0],Float32(0.0))
+    realization = WS.AiryRealization(components, ones(Float32, length(components)), 1f0)
               
     x = Float32[0.0, 1.0, 2.0]
     y = Float32[0.0, 0.5, 1.0]
@@ -256,7 +256,7 @@ end
       rand(rng, Nc),
       2π .* rand(rng, Nc),
     )
-    realization = WS.AiryRealization(components,[0.0],0.0)
+    realization = WS.AiryRealization(components, ones(length(components)), 1.0)
 
     x = randn(rng, Neval)
     y = randn(rng, Neval)
@@ -287,7 +287,7 @@ end
           rand(rng, Nc),
           2π .* rand(rng, Nc),
         )
-        realization = WS.AiryRealization(components,[0.0],0.0,)
+        realization = WS.AiryRealization(components, ones(length(components)), 1.0)
     
         x = randn(rng, Neval)
         y = randn(rng, Neval)
@@ -300,3 +300,112 @@ end
       end
     
   end
+# -----------------------------------------------------------------------------
+# Independent textbook reference over the (ω, θ) grid of an AiryState. It does
+# not use `realize`, the evaluation kernels or `generate_sea`.
+# -----------------------------------------------------------------------------
+function reference_fields(state, x, y, z, t)
+  A = AW.get_amplitudes(state)
+  φ = AW.get_random_phases(state)
+  g = WS.PhysicalConstants.g
+  h = state.h
+  η = ϕ = u = v = w = 0.0
+  for i in 1:state.nω, j in 1:state.nθ
+    ω, k, θ = state.ω[i], state.k[i], state.θ[j]
+    ψ = k * (x * cos(θ) + y * sin(θ)) - ω * t + φ[i, j]
+    η += A[i, j] * cos(ψ)
+    ϕ += A[i, j] * g / ω * cosh(k * (z + h)) / cosh(k * h) * sin(ψ)
+    u += A[i, j] * ω * cos(θ) * cosh(k * (z + h)) / sinh(k * h) * cos(ψ)
+    v += A[i, j] * ω * sin(θ) * cosh(k * (z + h)) / sinh(k * h) * cos(ψ)
+    w += A[i, j] * ω * sinh(k * (z + h)) / sinh(k * h) * sin(ψ)
+  end
+  return (η = η, ϕ = ϕ, u = u, v = v, w = w)
+end
+
+@testset "Short-crested sea matches textbook reference" begin
+  spec = CS.JONSWAP(2.0, 8.0)
+  ds = SS.DiscreteSpectralSpreading(spec, WS.SpectralSampling.UniformSampling(), 0.05, 0.5, 8; mess=false)
+  spread = AS.DiscreteAngularSpreading(:cosinepow, 0.0, 0.5, -π/2, π/2, 6)
+  state = AW.AiryState(ds, spread, 30.0)
+  @test state.nω > 1 && state.nθ > 1
+  r = WS.realize(state)
+
+  pts = ((0.0, 0.0, 0.0, 0.0), (3.0, -2.0, -4.0, 1.5), (10.0, 5.0, -1.0, 7.0), (-7.0, 12.0, -29.0, 33.0))
+  for (x, y, z, t) in pts
+    ref = reference_fields(state, x, y, z, t)
+    @test WS.evaluate_η(r, x, y, t) ≈ ref.η atol = 1e-12
+    @test WS.evaluate_ϕ(r, x, y, z, t) ≈ ref.ϕ atol = 1e-12
+    @test WS.evaluate_u(r, x, y, z, t) ≈ ref.u atol = 1e-12
+    @test WS.evaluate_v(r, x, y, z, t) ≈ ref.v atol = 1e-12
+    @test WS.evaluate_w(r, x, y, z, t) ≈ ref.w atol = 1e-12
+    f = WS.evaluate_fields(r, x, y, z, t)
+    for name in (:η, :ϕ, :u, :v, :w)
+      @test f[name] ≈ ref[name] atol = 1e-12
+    end
+  end
+
+  # generate_sea on a small tensor grid
+  xs = [0.0, 3.0, 10.0]; ys = [-2.0, 5.0]; zs = [-4.0, -1.0, 0.0]; ts = [0.0, 1.5, 7.0]
+  sea = AW.generate_sea(state, xs, ys, zs, ts)
+  @test size(sea.η) == (3, 2, 1, 3)
+  @test size(sea.u) == (3, 2, 3, 3)
+  for (ix, x) in enumerate(xs), (iy, y) in enumerate(ys), (iz, z) in enumerate(zs), (it, t) in enumerate(ts)
+    ref = reference_fields(state, x, y, z, t)
+    iz == 1 && @test sea.η[ix, iy, 1, it] ≈ ref.η atol = 1e-12
+    @test sea.ϕ[ix, iy, iz, it] ≈ ref.ϕ atol = 1e-12
+    @test sea.u[ix, iy, iz, it] ≈ ref.u atol = 1e-12
+    @test sea.v[ix, iy, iz, it] ≈ ref.v atol = 1e-12
+    @test sea.w[ix, iy, iz, it] ≈ ref.w atol = 1e-12
+  end
+  @test keys(AW.generate_sea(state, xs, ys, zs, ts; vars = [:w, :η])) == (:w, :η)
+end
+
+@testset "Deep water (kh ≫ 20) stays finite and exact" begin
+  spec = CS.JONSWAP(1.0, 4.0)
+  ds = SS.DiscreteSpectralSpreading(spec, WS.SpectralSampling.UniformSampling(), 0.1, 2.0, 12; mess=false)
+  state = AW.AiryState(ds, AS.DiscreteAngularSpreading(0.3), 2000.0)
+  @test maximum(state.k) * state.h > 700   # cosh(kh) overflows Float64 here
+  r = WS.realize(state)
+  for z in (0.0, -1.0, -10.0, -2000.0)
+    f = WS.evaluate_fields(r, 1.0, 2.0, z, 3.0)
+    @test all(isfinite, values(f))
+  end
+  # Near the surface the exact profile equals the deep-water exponential
+  x, y, z, t = 1.0, 2.0, -1.5, 3.0
+  A = AW.get_amplitudes(state); φ = AW.get_random_phases(state)
+  ϕ_deep = sum(A[i, 1] * WS.PhysicalConstants.g / state.ω[i] * exp(state.k[i] * z) *
+               sin(state.k[i] * (x * cos(state.θ[1]) + y * sin(state.θ[1])) - state.ω[i] * t + φ[i, 1])
+               for i in 1:state.nω)
+  @test WS.evaluate_ϕ(r, x, y, z, t) ≈ ϕ_deep rtol = 1e-10
+end
+
+@testset "evaluate_fields! and type stability" begin
+  spec = CS.JONSWAP(2.0, 8.0)
+  ds = SS.DiscreteSpectralSpreading(spec, WS.SpectralSampling.UniformSampling(), 0.05, 0.5, 8; mess=false)
+  state = AW.AiryState(ds, AS.DiscreteAngularSpreading(:cosinepow, 0.0, 0.5, -π/2, π/2, 6), 30.0)
+  r = WS.realize(state)
+  rng = Random.MersenneTwister(42)
+  n = 64
+  x = 50 .* randn(rng, n); y = 50 .* randn(rng, n); z = -30 .* rand(rng, n); t = 100 .* rand(rng, n)
+  η, ϕ, u, v, w = (zeros(n) for _ in 1:5)
+  WS.evaluate_fields!(η, ϕ, u, v, w, r, x, y, z, t)
+  @test η ≈ WS.evaluate_η!(zeros(n), r, x, y, t)
+  @test ϕ ≈ WS.evaluate_ϕ!(zeros(n), r, x, y, z, t)
+  @test u ≈ WS.evaluate_u!(zeros(n), r, x, y, z, t)
+  @test v ≈ WS.evaluate_v!(zeros(n), r, x, y, z, t)
+  @test w ≈ WS.evaluate_w!(zeros(n), r, x, y, z, t)
+  @test_throws DimensionMismatch WS.evaluate_fields!(η, ϕ, u, v, zeros(n - 1), r, x, y, z, t)
+
+  c = r.components
+  r32 = WS.AiryRealization(WS.WaveComponents(Float32.(c.ω), Float32.(c.kx), Float32.(c.ky),
+                                             Float32.(c.amplitude), Float32.(c.phase)),
+                           Float32.(r.k), Float32(r.h))
+  @test (@inferred WS.evaluate_ϕ(r32, 1f0, 2f0, -3f0, 4f0)) isa Float32
+  @test (@inferred WS.evaluate_w(r32, 1f0, 2f0, -3f0, 4f0)) isa Float32
+  @test (@inferred WS.evaluate_fields(r32, 1f0, 2f0, -3f0, 4f0)).u isa Float32
+  @test WS.evaluate_ϕ(r32, 1f0, 2f0, -3f0, 4f0) ≈ WS.evaluate_ϕ(r, 1.0, 2.0, -3.0, 4.0) rtol = 1e-4
+  # Measure inside a function so the result is not boxed at testset scope
+  fields_alloc(r) = @allocated WS.evaluate_fields(r, 1.0, 2.0, -3.0, 4.0)
+  fields_alloc(r)
+  @test fields_alloc(r) == 0
+end

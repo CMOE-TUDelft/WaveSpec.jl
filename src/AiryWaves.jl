@@ -128,102 +128,17 @@ These elements are combined to compute the sea surface elevation and velocity co
 """
 
 """
-    generate_sea(state::AiryState, x, y, z, t)
+    generate_sea(state::AiryState, x, y, z, t; vars=[:η, :ϕ, :u, :v, :w])
 
-The main evaluation engine. Computes η, ϕ, u, v, w for a 4D grids (x, y, z, t).
-Everything is computed on-the-fly to minimize memory footprint.
-The trick to compute the series is to expand all items to 6 dimensional tensors 
-with dimensional structure 
-                T = (x, y, z, t, ω, θ)
-and then contract the last 2 dimensions (ω and θ) to sum the series components.
+Evaluate the requested fields on the tensor grid `x × y × z × t` and return a
+`NamedTuple` of 4D arrays. `η` has size `(nx, ny, 1, nt)`; `ϕ, u, v, w` have
+size `(nx, ny, nz, nt)`.
+
+The method is defined in `AiryEvaluation.jl`, after `AiryRealization`: the
+state is realized once and evaluated point by point with the threaded,
+allocation-free kernels, so memory use is proportional to the output size.
 """
-function generate_sea(state::AiryState, x::AbstractArray{<:R}, y::AbstractArray{<:R}, z::AbstractArray{<:R}, t::AbstractArray{<:R}; vars = [:η, :ϕ, :u, :v, :w]) where {R<:Real}
-
-    # Normalize input to a Vector of Symbols
-    requested = vars isa Symbol ? [vars] : vars
-
-    # Error check
-    if isempty(requested)
-        throw(ArgumentError("No valid variables requested. Choose from :η, :ϕ, :u, :v, :w"))
-    end
-    
-    # Initialize an empty dictionary to store results
-    res = Dict{Symbol, Any}()
-
-    # Amplitudes Matrix  A_ij: (nω × nθ)
-    A_ij = get_amplitudes(state)
-
-    # Random phases for all components   ϕ_ij: (nω × nθ)
-    ϕ_ij = get_random_phases(state)       
-
-    ## Reshape elements to 6 dimensional tensors
-    # Reshape Spectral Components to [1, 1, 1, 1, nω, nθ]
-    A = reshape(A_ij, 1, 1, 1, 1, state.nω, state.nθ)
-    ϕ = reshape(ϕ_ij, 1, 1, 1, 1, state.nω, state.nθ)
-    ω = reshape(state.ω, 1, 1, 1, 1, state.nω, 1)
-    θ = reshape(state.θ, 1, 1, 1, 1, 1, state.nθ)
-    k = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
-
-    # Reshape Evaluation Coordinates
-    X = reshape(x, :, 1, 1, 1, 1, 1) # Dim 1
-    Y = reshape(y, 1, :, 1, 1, 1, 1) # Dim 2
-    Z = reshape(z, 1, 1, :, 1, 1, 1) # Dim 3
-    T = reshape(t, 1, 1, 1, :, 1, 1) # Dim 4
-
-    # Phase Tensor Construction (nx × ny × nz × nt × nω × nθ)
-    # ψ = k*(x*cosθ + y*sinθ) - ωt + ϕ
-    ψ = k .* ( X .* cos.(θ) .+ Y .* sin.(θ) ) .- (ω .* T) .+ ϕ
-
-    # Calculations (Independent 'if' blocks so all requested vars are computed) -> Compute profiles by summing over all components
-    if :η in requested
-        res[:η] = dropdims(sum( A .* cos.(ψ), dims=(5,6)), dims=(5,6))
-    end
-    
-    if :ϕ in requested || :u in requested || :v in requested || :w in requested
-        # Vertical Coefficients (Expanded to handle Z and k simultaneously)
-        kh = state.k .* state.h  # (nω, )
-        # Reshape k and kh for Dim 5 (ω)
-        k_reshaped  = reshape(state.k, 1, 1, 1, 1, state.nω, 1)
-        kh_reshaped = reshape(kh, 1, 1, 1, 1, state.nω, 1)
-        h = state.h 
-    end
-
-    if :ϕ in requested
-        coeff_ϕ = ifelse.(kh_reshaped .< 20.0,
-                    g ./ ω .* cosh.(k_reshaped .* (Z .+ h)) ./ cosh.(kh_reshaped),
-                    g ./ ω .* exp.(k_reshaped .* Z))
-        res[:ϕ] = dropdims(sum(A .* coeff_ϕ .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
-    end
-
-    if :u in requested || :v in requested 
-        # Precompute coefficients only if  needed: coeff_H will be (1 × 1 × nz × 1 × nω × 1)
-        coeff_H = ifelse.(kh_reshaped .< 20.0, 
-                    cosh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
-                    exp.(k_reshaped .* Z))
-
-        if :u in requested
-            # Compute profile by summing over all components
-            res[:u] = dropdims(sum( A .* (ω .* coeff_H .* cos.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
-        end
-
-        if :v in requested
-            # Compute profile by summing over all components
-            res[:v] = dropdims(sum( A .* (ω .* coeff_H .* sin.(θ)) .* cos.(ψ), dims=(5, 6)), dims=(5, 6))
-        end
-    end
-
-    if :w in requested
-        # Precompute coefficients only if needed: coeff_V will be (1 × 1 × nz × 1 × nω × 1)
-        # We apply the check per-frequency to handle different wave lengths correctly
-        coeff_V = ifelse.(kh_reshaped .< 20.0, 
-            sinh.(k_reshaped .* (Z .+ h)) ./ sinh.(kh_reshaped), 
-            exp.(k_reshaped .* Z))
-        # Compute profile by summing over all components
-        res[:w] = dropdims(sum( A .* (ω .* coeff_V) .* sin.(ψ), dims=(5, 6)), dims=(5, 6))
-    end
-
-    return (; res...)
-end
+function generate_sea end
 
 
 function get_amplitudes(state::AiryState)
