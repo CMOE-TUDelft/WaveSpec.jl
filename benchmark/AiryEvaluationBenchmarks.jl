@@ -44,12 +44,12 @@ function benchmark_generate_sea(state::WS.AiryState, Neval::Int; samples::Int = 
 end
 
 suite = BenchmarkTools.BenchmarkGroup()
-for N in (1_000, 10_000, 100_000)
-    for Np in (1_000, 10_000, 100_000)
+for N in (1_000, 2_000, 4_000, 8_000)
+    for Np in (1_000, 4_000, 16_000, 64_000, 256_000)
         @info "Benchmark" Ncomponents=N Neval=Np
         state, realization = create_realization(N)
         suite[N, Np]["evaluation"] = benchmark_evaluation(realization, Np)
-        suite[N, Np]["generate_sea"] = benchmark_generate_sea(state, Np)
+        # suite[N, Np]["generate_sea"] = benchmark_generate_sea(state, Np)
     end
 end
 display(suite)
