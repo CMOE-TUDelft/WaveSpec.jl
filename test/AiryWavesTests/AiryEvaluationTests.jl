@@ -46,7 +46,7 @@ end
   
 end
 
-@testset "evaluate_η regression" begin
+@testset "evaluate_x regression" begin
   
   spec = CS.JONSWAP(1.0,8.0)
   ds = SS.DiscreteSpectralSpreading(spec,WS.SpectralSampling.UniformSampling(),0.05,0.5,11;mess=false)
@@ -64,20 +64,34 @@ end
   )
   
   for (x, y, t) in points
-    sea = AW.generate_sea(state,[x],[y],[0.0],[t];vars=(:η,))
-    η_old = sea[:η][1]
-    η_new = WS.evaluate_η(realization,x,y,t)
-    @test η_new ≈ η_old atol=1e-12
+    sea = AW.generate_sea(state,[x],[y],[0.0],[t];vars=(:η,:ϕ,:u,:v,:w))
+    @test WS.evaluate_η(realization,x,y,t) ≈ sea[:η][1] atol=1e-12
+    @test WS.evaluate_ϕ(realization,x,y,0.0,t) ≈ sea[:ϕ][1] atol=1e-12
+    @test WS.evaluate_u(realization,x,y,0.0,t) ≈ sea[:u][1] atol=1e-12
+    @test WS.evaluate_v(realization,x,y,0.0,t) ≈ sea[:v][1] atol=1e-12
+    @test WS.evaluate_w(realization,x,y,0.0,t) ≈ sea[:w][1] atol=1e-12
   end
   
   η1 = WS.evaluate_η(realization, 1.2, 3.4, 5.6)
   η2 = WS.evaluate_η(realization, 1.2, 3.4, 5.6)
+  ϕ1 = WS.evaluate_ϕ(realization, 1.2, 3.4, 5.6, 7.8)
+  ϕ2 = WS.evaluate_ϕ(realization, 1.2, 3.4, 5.6, 7.8)
+  u1 = WS.evaluate_u(realization, 1.2, 3.4, 5.6, 7.8)
+  u2 = WS.evaluate_u(realization, 1.2, 3.4, 5.6, 7.8)
+  v1 = WS.evaluate_v(realization, 1.2, 3.4, 5.6, 7.8)
+  v2 = WS.evaluate_v(realization, 1.2, 3.4, 5.6, 7.8)
+  w1 = WS.evaluate_w(realization, 1.2, 3.4, 5.6, 7.8)
+  w2 = WS.evaluate_w(realization, 1.2, 3.4, 5.6, 7.8) 
+  @test ϕ1 == ϕ2
   @test η1 == η2
+  @test u1 == u2
+  @test v1 == v2
+  @test w1 == w2
 end
 
 # The following test set checks the correctness of the `evaluate_η!` function.
 # It uses an independent reference implementation `direct_η` to verify results.
-@testset "evaluate_η!" begin
+@testset "evaluate_x!" begin
   
   """
       direct_η(components, x, y, t)

@@ -62,6 +62,17 @@ function evaluate_ϕ(realization::AiryRealization{T}, x::Real, y::Real,
     return ϕ
 end
 
+function evaluate_ϕ!(ϕ::AbstractVector{T}, realization::AiryRealization{T}, 
+                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
+                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
+    _check_lengths(ϕ, x, y, z, t)
+    @inbounds Threads.@threads for j in eachindex(ϕ)
+      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
+      ϕ[j] = evaluate_ϕ(realization, xj, yj, zj, tj)
+    end
+    return ϕ
+end
+
 """
     evaluate_u(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
 
@@ -93,6 +104,17 @@ function evaluate_u(realization::AiryRealization{T}, x::Real, y::Real,
         end
       cosθ = comps.kx[i] / k
       u += comps.amplitude[i] * comps.ω[i] * cosθ * coeff * cos(ψ)
+    end
+    return u
+end
+
+function evaluate_u!(u::AbstractVector{T}, realization::AiryRealization{T}, 
+                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
+                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
+    _check_lengths(u, x, y, z, t)
+    @inbounds Threads.@threads for j in eachindex(u)
+      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
+      u[j] = evaluate_u(realization, xj, yj, zj, tj)
     end
     return u
 end
@@ -132,6 +154,17 @@ function evaluate_v(realization::AiryRealization{T}, x::Real, y::Real,
     return v
 end
 
+function evaluate_v!(v::AbstractVector{T}, realization::AiryRealization{T}, 
+                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
+                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
+    _check_lengths(v, x, y, z, t)
+    @inbounds Threads.@threads for j in eachindex(v)
+      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
+      v[j] = evaluate_v(realization, xj, yj, zj, tj)
+    end
+    return v
+end
+
 """
     evaluate_w(realization::AiryRealization, x::Real, y::Real, z::Real, t::Real)
 
@@ -161,6 +194,17 @@ function evaluate_w(realization::AiryRealization{T}, x::Real, y::Real,
             exp(k * z)
         end
       w += comps.amplitude[i] * comps.ω[i] * coeff * sin(ψ)
+    end
+    return w
+end
+
+function evaluate_w!(w::AbstractVector{T}, realization::AiryRealization{T}, 
+                     x::AbstractVector{<:Real}, y::AbstractVector{<:Real}, 
+                     z::AbstractVector{<:Real}, t::AbstractVector{<:Real}) where {T}
+    _check_lengths(w, x, y, z, t)
+    @inbounds Threads.@threads for j in eachindex(w)
+      xj = x[j]; yj = y[j]; zj = z[j]; tj = t[j]
+      w[j] = evaluate_w(realization, xj, yj, zj, tj)
     end
     return w
 end
