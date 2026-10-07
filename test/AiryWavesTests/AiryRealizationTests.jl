@@ -59,6 +59,16 @@ end
 end
 
 @testset "AiryRealization validates k length" begin
-    comps = WaveSpec.WaveComponents([1.0, 2.0], [0.1, 0.4], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0])
-    @test_throws DimensionMismatch WaveSpec.AiryRealization(comps, [0.1], 10.0)
+    @test :WaveComponents in names(WaveSpec)
+    @test :get_amplitudes in names(WaveSpec.AiryWaves)
+    @test :solve_wavenumber in names(WaveSpec.AiryWaves)
+
+    components = WaveComponents(
+        [1.0, 2.0], [0.1, 0.4], [0.0, 0.0], [1.0, 1.0], [0.0, 0.0],
+    )
+    @test_throws DimensionMismatch AiryRealization(components, [0.1], 10.0)
+
+    ω, h = 1.0, 10.0
+    k = WaveSpec.AiryWaves.solve_wavenumber(ω, h)
+    @test isapprox(WaveSpec.PhysicalConstants.g * k * tanh(k * h), ω^2; rtol = 1e-8)
 end

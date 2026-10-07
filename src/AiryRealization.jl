@@ -1,4 +1,4 @@
-using ..AiryWaves
+using .AiryWaves
 using .PhysicalConstants: g
 
 export AiryRealization, realize

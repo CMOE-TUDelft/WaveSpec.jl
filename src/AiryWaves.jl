@@ -8,7 +8,8 @@ using ..PhysicalConstants
 using Interpolations
 using ..ContinuousSpectrums: JONSWAP, RegularWave
 
-export AiryState, generate_sea, get_amplitude, get_random_phases
+export AiryState, generate_sea, get_amplitude, get_amplitudes, get_random_phases
+export solve_wavenumber
 
 """
     AiryState
@@ -90,8 +91,19 @@ end
 
 # -------------------------
 
-# --- INTERNAL DISPERSION SOLVER ---
+# --- DISPERSION SOLVER ---
 
+"""
+    solve_wavenumber(ω::Real, h::Real)
+
+Solve the finite-depth linear-wave dispersion relation for wavenumber `k`:
+
+```math
+\\omega^2 = g k \\tanh(k h)
+```
+
+`ω` is in rad/s, `h` is in metres, and the returned `k` is in rad/m.
+"""
 function solve_wavenumber(ω::Real, h::Real)
     k = ω^2 / g # Deep water guess
     for _ in 1:15
@@ -141,6 +153,12 @@ allocation-free kernels, so memory use is proportional to the output size.
 function generate_sea end
 
 
+"""
+    get_amplitudes(state::AiryState)
+
+Return the component-amplitude matrix with shape `(state.nω, state.nθ)`.
+Rows correspond to frequency bins and columns to direction bins.
+"""
 function get_amplitudes(state::AiryState)
 
     # Metadata
@@ -153,6 +171,13 @@ function get_amplitudes(state::AiryState)
 
 end
 
+"""
+    get_random_phases(state::AiryState)
+
+Return the deterministic component-phase matrix with shape
+`(state.nω, state.nθ)`. Repeated calls for the same state return the same
+phases because they are generated from `state.seed`.
+"""
 function get_random_phases(state::AiryState)
     return 2π .* rand(get_seeded_rng(state.seed), state.nω, state.nθ) 
 end

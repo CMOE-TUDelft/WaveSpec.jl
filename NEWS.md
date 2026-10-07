@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `evaluate_fields` / `evaluate_fields!`: evaluate η, ϕ, u, v and w in a single pass over the wave components (≈4× faster than five separate `evaluate_*` calls).
+- Public API for `WaveComponents`, `AiryWaves.get_amplitudes`, and
+	`AiryWaves.solve_wavenumber`, with an Airy-realization guide and API reference.
 - `benchmark/benchmarks.jl` (BenchmarkTools `SUITE`) and `benchmark/compare.jl` to compare saved benchmark runs.
 
 ### Changed

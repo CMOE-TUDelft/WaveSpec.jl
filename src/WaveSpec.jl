@@ -19,6 +19,7 @@ include("AngularSpreading/AngularSpreading.jl")
 
 # Include the wave-component representation
 include("WaveComponents.jl")
+export WaveComponents
 
 # Include Airy Waves module
 include("AiryWaves.jl")
