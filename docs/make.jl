@@ -19,7 +19,8 @@ makedocs(;
         "User Guide" => [
             "Installation" => "guide/installation.md",
             "Getting Started" => "guide/getting_started.md",
-             "Tutorials" => "guide/tutorials.md",
+            "Airy-Wave Realizations" => "guide/Airy_realization.md",
+            "Tutorials" => "guide/tutorials.md",
         ],
         "API Reference" => [
             "Continuous Spectrums" => "api/continuous_spectrums.md",

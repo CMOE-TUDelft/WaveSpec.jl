@@ -13,4 +13,5 @@ tmp/
 *.pvsm
 output/*
 data/*
+CLAUDE.md
 
