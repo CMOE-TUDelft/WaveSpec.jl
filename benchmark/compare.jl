@@ -1,5 +1,5 @@
 # Compare two result files written by benchmark/benchmarks.jl.
-#   julia --project=. benchmark/compare.jl before.json after.json
+#   julia --project=benchmark benchmark/compare.jl before.json after.json
 
 using BenchmarkTools, Printf
 

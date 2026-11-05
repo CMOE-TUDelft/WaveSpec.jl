@@ -1,9 +1,11 @@
 # WaveSpec.jl benchmark suite (PkgBenchmark-compatible: defines `SUITE`).
 #
+# Set up the benchmark environment once:
+#   julia --project=benchmark -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 # Run and save results:
-#   julia --project=. -t auto benchmark/benchmarks.jl results.json
+#   julia --project=benchmark -t auto benchmark/benchmarks.jl results.json
 # Compare two saved runs:
-#   julia --project=. benchmark/compare.jl before.json after.json
+#   julia --project=benchmark benchmark/compare.jl before.json after.json
 
 using BenchmarkTools
 using Random
